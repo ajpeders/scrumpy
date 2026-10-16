@@ -4,7 +4,10 @@ A cliamp-style terminal player for Apple Music on Linux. [Cider](https://cider.s
 does the playback; cider-tui controls it over Cider's local API and adds search,
 library, playlists, queue and a spectrum visualizer.
 
-Status: design done, no code yet, not on Forgejo yet (CID-00). See [ROADMAP.md](ROADMAP.md).
+Status: design done, no code yet. Repositories exist on
+[Forgejo](https://git.thelunadog.com/alex/cider-tui) and
+[GitHub](https://github.com/ajpeders/cider-tui); the first push is pending (CID-00).
+See [ROADMAP.md](ROADMAP.md).
 
 ## Requirements
 

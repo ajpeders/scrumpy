@@ -15,10 +15,11 @@ Design: [docs/superpowers/specs/2026-10-15-cider-tui-design.md](docs/superpowers
 Acceptance for any card: `go vet ./... && go test ./...` green, plus a new test
 covering the change. Push to `main` only after review (see HOWTO.md).
 
-- [ ] **CID-00 Create the repo**: create `cider-tui` under the forgo org on
-  git.thelunadog.com, add it as `origin` (SSH via the `forgejo` alias, port 2222)
-  and push `main` after alex OKs the diff. (1) Acceptance: `git ls-remote origin`
-  shows `main` at the local HEAD.
+- [ ] **CID-00 Create the repos**: public `alex/cider-tui` on git.thelunadog.com
+  is `origin` (SSH, port 2222); public `ajpeders/cider-tui` on GitHub is `github`.
+  Both repos and remotes are set up. Push `main` to both only after alex OKs the diff.
+  (1) Acceptance: `git ls-remote origin` and `git ls-remote github` both show
+  `main` at the local HEAD.
 - [ ] **CID-01 Scaffold + Cider client**: Go module, `cider` package with token
   discovery (`CIDER_TOKEN` → Cider's `spa-config.yml`), `CIDER_URL` override,
   `Get`/`Post`/`AMAPI`/paging, typed errors for not-running (connection refused)

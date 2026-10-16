@@ -37,8 +37,8 @@ pw-dump | jq '.[] | select(.info.props["application.name"]? // "" | test("cider"
 ## Ship a change
 
 1. Tick the card in ROADMAP.md and update the other docs if behaviour changed.
-2. Commit, then show the diff and wait for OK before `git push` (repo on
-   git.thelunadog.com under forgo).
+2. Commit, then show the diff and wait for OK before pushing `main` to both
+   `origin` (Forgejo, alex/cider-tui) and `github` (ajpeders/cider-tui).
 
 ## Troubleshooting
 
