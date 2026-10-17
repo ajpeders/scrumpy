@@ -1,8 +1,8 @@
 # Architecture
 
-One Go binary. It never touches audio data from Apple Music: Cider plays it
-(DRM means only Cider can decode it), and cider-tui sends commands over HTTP and
-reads Cider's output from PipeWire for the visualizer.
+One Go binary. Cider handles Apple Music playback and DRM; cider-tui sends
+commands over HTTP and reads Cider's decoded PCM output from PipeWire for the
+visualizer. It does not download or decode Apple Music audio files itself.
 
 ```
 cider-tui (Bubble Tea)
@@ -45,3 +45,6 @@ Full verified details are in the [design spec](docs/superpowers/specs/2026-10-15
 
 Cider's API binds `0.0.0.0:10767`, so the token is the only thing keeping other
 LAN devices from controlling playback. Don't disable `apiTokensRequired`.
+Keep the API behind a local firewall; do not expose it to the Internet. The
+default HTTP connection is unencrypted, so use an encrypted tunnel rather than
+sending the token over an untrusted network with a remote `CIDER_URL`.

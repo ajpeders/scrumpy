@@ -24,6 +24,7 @@ works; catalog paths need the storefront (`/v1/me/storefront`, currently `us`).
 
 ```sh
 go vet ./... && go test ./...
+go test -race ./...
 CIDER_LIVE=1 go test ./cider -run Live   # read-only smoke test against running Cider
 ```
 
@@ -45,6 +46,12 @@ pw-dump | jq '.[] | select(.info.props["application.process.binary"]? // "" | te
 
 ## Cut a release
 
+First complete the public-release gates in [ROADMAP.md](ROADMAP.md), including
+the live soak test and the [demo rehearsal](demo/README.md). Tests alone do not
+validate Cider playback, terminal graphics, or the release upload credentials.
+Review the working tree (including untracked files), commit only the intended
+changes, and get approval before pushing. Do not tag a dirty or unreviewed tree.
+
 Versions follow semver tags (`v0.1.0`). `go install …@v0.1.0` reports that
 version in `cider-tui --version` automatically; for a hand-built binary:
 
@@ -52,6 +59,25 @@ version in `cider-tui --version` automatically; for a hand-built binary:
 git tag -a v0.1.0 -m "v0.1.0" && git push origin v0.1.0 && git push github v0.1.0
 go build -ldflags "-X main.version=v0.1.0" -o cider-tui .
 ```
+
+Pushing a `v*` tag runs the `release` workflow on both remotes
+(`.forgejo/workflows/release.yml`, `.github/workflows/release.yml`): it builds
+linux amd64/arm64 binaries with the tag baked in and attaches them to a new
+release. Forgejo needs a `RELEASE_TOKEN` repo secret (access token with
+`write:repository`) if the job token cannot create releases.
+
+After both workflows finish:
+
+1. Download both architectures from each release, compare SHA-256 hashes across
+   mirrors, and publish a checksum manifest with the assets.
+2. Run `--version`, `--check`, and a short playback session on a clean Linux
+   machine for each architecture (or record explicitly which was not tested).
+3. Test `go install github.com/ajpeders/cider-tui@v0.1.0` outside the checkout.
+4. Add release notes with prerequisites, supported platforms, known issues and
+   the demo link. Verify download links anonymously before announcing.
+
+The tag/push commands above publish a release; run them only when ready. Never
+move a published tag to repair a release—fix forward with a new version.
 
 ## Troubleshooting
 
@@ -64,4 +90,12 @@ go build -ldflags "-X main.version=v0.1.0" -o cider-tui .
 - Cider runs on another port or machine: set `CIDER_URL`, e.g.
   `CIDER_URL=http://localhost:10767`.
 - Token not found (Flatpak or custom install): copy the token from Cider's
-  token list and `export CIDER_TOKEN=...`.
+   token list and `export CIDER_TOKEN=...`.
+- Visualizer blank: install `pw-record` and `pw-dump`, start playback in Cider,
+  and check the Cider PipeWire node above. `--check` reports prerequisites, not
+  proof that live PCM frames are arriving. There is no microphone/sink fallback.
+- Artwork looks pixelated: Unicode blocks are the fallback, including inside
+  tmux/Screen. Rehearse high-resolution artwork directly in a supported terminal.
+- Clipboard unavailable: install `wl-copy` on Wayland or `xclip`/`xsel` on X11.
+- Need a reproducible showcase: use the [full demo runbook](demo/README.md);
+  the existing VHS tape is only a short teaser, not the release test matrix.

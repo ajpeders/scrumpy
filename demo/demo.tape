@@ -1,9 +1,8 @@
 # Render with: vhs demo/demo.tape   (Cider must be playing)
 #
-# Concise cut (~35 s): cold open on the animating visualizer + lyrics, one
-# theme hop, one search→enqueue→play interaction, then the full-screen
-# visualizer as the payoff and a key-help closer. No dead air, no private
-# library rows, and a neutral search query.
+# Concise cut (~30 s): cold open on the animating visualizer + lyrics,
+# one search→play interaction, then the full-screen
+# visualizer as the payoff. Start Cider on I Wonder by Kanye West.
 Output demo/demo.gif
 Output demo/demo.mp4
 
@@ -16,7 +15,7 @@ Set TypingSpeed 80ms
 
 # Isolated config: demo theme, real Cider token via symlink
 Hide
-Type "D=/tmp/cider-tui-vhs && mkdir -p $D/cfg/cider-tui && ln -sfn ~/.config/sh.cider.genten $D/cfg/sh.cider.genten"
+Type `D=$(mktemp -d /tmp/opencode/cider-demo.XXXXXX) && mkdir -p $D/cfg/cider-tui && ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" $D/cfg/sh.cider.genten`
 Enter
 Type `echo '{"theme":"Dark","background":true,"visualizer":"spectrum"}' > $D/cfg/cider-tui/settings.json`
 Enter
@@ -28,44 +27,29 @@ Show
 # Hook: opens on Queue with the spectrum animating and synced lyrics
 Sleep 6s
 
-# One theme hop, recoloring live
-Type ","
-Type "j"
-Enter
-Type ","
-Sleep 4s
-
-# Search the catalog, land on a result, enqueue it
+# Search the catalog and play the first result: I Wonder by Kanye West
 Type "1"
 Sleep 1s
 Type "/"
-Type "fleetwood mac"
+Type "I Wonder Kanye West"
 Enter
 Sleep 3s
-Type "j"
 Sleep 2s
-Type "a"
+Enter
 Sleep 3s
 
-# Land back on Queue and play from the enqueued song
+# Show the resulting Queue without guessing the selected track's position
 Type "4"
-Sleep 2s
-Type "jjjjjjjjjj"
-Sleep 1s
-Enter
 Sleep 3s
 
 # Payoff: switch to waveform, then full-screen visualizer
 Type "b"
-Sleep 4s
+Sleep 3s
 Type "v"
 Sleep 6s
 Type "v"
 
-# Closer: key help, then quit
-Type "?"
-Sleep 3s
-Type "?"
-Sleep 1s
-
+# End on the player rather than a shell prompt
+Sleep 2s
+Hide
 Type "q"

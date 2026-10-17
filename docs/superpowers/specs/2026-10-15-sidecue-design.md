@@ -91,6 +91,12 @@ Probing with real playback resolved the earlier unknowns:
 - **socket.io**: the EIO4 polling transport is implemented (`live`), but Cider's
   application event names are still unobserved, so HTTP polling remains the
   source of truth (CID-09 stays partial).
+- **Artist search** (2026-10-16; endpoints taken from Apple's docs, not yet
+  probed live): Search adds `artists` to the catalog search `types` and opens an
+  artist with the `…/artists/{id}/view/top-songs` view. The Library's third `l`
+  mode searches `library-artists` and browses `…/me/library/artists`, and opens
+  an artist's `…/me/library/artists/{id}/albums` (the `albums` relationship is
+  available only when fetching a single library artist by ID).
 
 ## Architecture
 

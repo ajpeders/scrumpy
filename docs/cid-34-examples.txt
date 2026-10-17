@@ -1,0 +1,99 @@
+CID-34 — Bottom-panel row layout
+================================
+
+Each row in the bottom browsing panel renders as a single line:
+
+    [cursor/play mark] [type tag] [title]    [artist · album]
+
+The `artist · album` segment drops the album when:
+  - the row's Album field is empty, or
+  - the row IS the container being browsed (Library albums / artists,
+    Playlists tab, album-tracks drill-down): the detail header already
+    names the container, so repeating it would be noise.
+
+The artist column falls back to just the album when artist is missing,
+and renders empty when both are missing — we never invent metadata.
+
+
+Wide (120 cols) — Queue, mixed albums
+-------------------------------------
+
+  │ > A-Punk                                Vampire Weekend · Vampire Weekend  │
+  │   Sunflower                             Post Malone · Into the Spider-Verse│
+  │   Hello                                 Adele · 25                          │
+  │   Untitled                              Unknown artist                       │
+
+
+Standard (80 cols) — Queue
+---------------------------
+
+  │ > A-Punk                Vampire Weekend · Vampire W…   │
+  │   Sunflower             Post Malone · Into the Spid…   │
+  │   Hello                 Adele · 25                     │
+
+
+Narrow (40 cols) — Queue
+------------------------
+
+  │ > A-Punk                Vampire Wee… │
+  │   Hello                 Adele · 25   │
+
+
+Wide — Library songs
+--------------------
+
+  │ > A-Punk              Vampire Weekend · Vampire Weekend  │
+
+
+Wide — Library albums (suppressed)
+----------------------------------
+
+  │ > Vampire Weekend                       Vampire Weekend  │
+
+
+Wide — Album-tracks drill-down (suppressed)
+--------------------------------------------
+
+  Tab border:  ‹ Vampire Weekend ›
+
+  │ > A-Punk                                Vampire Weekend  │
+  │   Cape Cod Kwassa Kwassa                Vampire Weekend  │
+
+
+Wide — Playlist-tracks drill-down (shown)
+------------------------------------------
+
+  Tab border:  ‹ My Roadtrip Mix ›
+
+  │ > A-Punk                                Vampire Weekend · Vampire Weekend  │
+  │   Hello                                 Adele · 25                         │
+
+
+Wide — Search (mixed types)
+----------------------------
+
+  │   A-Punk                                Vampire Weekend · Vampire Weekend  │
+  │   A Vampire Weekend                     Vampire Weekend                     │
+  │   * Vampire Weekend                     Indie rock                          │
+
+
+Wide — Unicode
+--------------
+
+  │   日本語 タイトル                       Österreichischer Künstler · Die schöne Müllerin  │
+  │   歌曲标题                             (artist missing, no separator)                  │
+
+
+Compact-spacing notes
+----------------------
+
+  - The two-cell gap (`"  "`) between the title and the subtitle
+    columns is unchanged from before this card.
+  - Single trailing " · " only appears when both artist and album
+    are non-empty; a missing artist or missing album drops the
+    separator cleanly.
+  - The subtitle column uses ansi.Truncate with a "…" ellipsis when
+    the combined metadata exceeds the available width.
+  - Row height is unchanged: every row is exactly one terminal line.
+  - Selection (▸/▸/▸ cursor markers) and current-track (▸ playing
+    marker) indicators are preserved across all widths.
