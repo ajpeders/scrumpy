@@ -1,8 +1,7 @@
 # Contributing
 
-Pick up the next unticked card in [ROADMAP.md](ROADMAP.md). Each card states
-its own acceptance criteria. Cards marked `[~]` are implemented and waiting on
-a manual check.
+Discuss proposed changes in an issue before starting substantial work. Include
+acceptance criteria and record manual checks separately from automated tests.
 
 ## Getting set up
 
@@ -17,11 +16,8 @@ Without Cider running you can still work on anything with tests: the client is
 exercised through `httptest`, and the UI through a fake client. Only the
 `CIDER_LIVE=1` smoke test and manual checks need live Cider.
 
-## Working on a card
+## Working on a change
 
-- Read the [design spec](docs/superpowers/specs/2026-10-15-sidecue-design.md)
-  for the card's area first. Its "Verified" sections record what has been
-  probed against Cider 3.1.8; add to them when you verify something new.
 - The baseline for every card: `go vet ./... && go test ./...` green, plus a
   new test covering the change. Run `go test -race ./...` for anything
   touching the event loop or the visualizer.
@@ -31,7 +27,7 @@ exercised through `httptest`, and the UI through a fake client. Only the
 ## Sending a change
 
 1. Branch off `main`.
-2. Tick the card in ROADMAP.md and update the other docs if behaviour changed.
+2. Update the docs if behaviour changed.
 3. Open a pull request on GitHub or Forgejo. `main` is pushed only after
    review; see "Ship a change" in [HOWTO.md](HOWTO.md).
 

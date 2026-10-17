@@ -18,6 +18,16 @@ import (
 	"testing"
 )
 
+func TestGitHubCIDoesNotPersistCheckoutCredentials(t *testing.T) {
+	workflow, err := os.ReadFile(".github/workflows/ci.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(workflow), "- uses: actions/checkout@v4\n        with:\n          persist-credentials: false") {
+		t.Fatal("GitHub CI must disable checkout credential persistence before running PR code")
+	}
+}
+
 // mockReleaseAPI records which routes the script hit, so tests can assert
 // on the lookup-vs-create-vs-upload sequence rather than trusting exit
 // codes alone.

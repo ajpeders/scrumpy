@@ -40,13 +40,13 @@ pw-dump | jq '.[] | select(.info.props["application.process.binary"]? // "" | te
 
 ## Ship a change
 
-1. Tick the card in ROADMAP.md and update the other docs if behaviour changed.
+1. Update the docs if behaviour changed.
 2. Commit, then show the diff and wait for OK before pushing `main` to both
    `origin` (Forgejo, alex/sidecue) and `github` (ajpeders/sidecue).
 
 ## Cut a release
 
-First complete the public-release gates in [ROADMAP.md](ROADMAP.md), including
+First complete the [live acceptance checklist](docs/release-gate-cid-29.md), including
 the live soak test and the [demo rehearsal](demo/README.md). Tests alone do not
 validate Cider playback, terminal graphics, or the release upload credentials.
 Review the working tree (including untracked files), commit only the intended

@@ -237,7 +237,22 @@ func (m Model) themedFrame(frame string, w int) string {
 	if themeForeground != nil {
 		style = style.Foreground(themeForeground)
 	}
-	return style.Render(frame)
+	rendered := style.Render(frame)
+	if themeForeground != nil {
+		// Inner Lip Gloss styles end with SGR 0, clearing the frame's colours.
+		// Restore the base colours after each reset so plain text and gaps do
+		// not inherit stale terminal cells when changing themes. Preserve the
+		// terminal's own background when the Background option is off.
+		base := lipgloss.NewStyle().Foreground(themeForeground)
+		if m.backgroundOn && themeBackground != nil {
+			base = base.Background(themeBackground)
+		}
+		colours := base.Render(" ")
+		if end := strings.IndexByte(colours, 'm'); end >= 0 {
+			rendered = strings.ReplaceAll(rendered, "\x1b[0m", "\x1b[0m"+colours[:end+1])
+		}
+	}
+	return rendered
 }
 
 // fit guarantees the frame never wraps or scrolls: each line is cut to the

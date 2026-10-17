@@ -31,6 +31,23 @@ Review the recording for visible private information before publishing.
 `demo.mp4` is tracked; the generated `demo.gif` is ignored to avoid large Git
 history. Prefer the MP4 for the full demo and a short GIF cutdown for embeds.
 
+## Short feature showcase (under two minutes)
+
+Run `vhs demo/showcase.tape` from the repository root with Cider signed in
+and playlist **102026** available. This builds the working tree and exports
+`showcase.mp4` and `showcase.gif`, using isolated appearance settings and the
+existing token without showing it. It changes real playback and queues that
+playlist; its real track names are visible. There is no seeking.
+
+The cut shows the playlist's enqueue confirmation, tracks and populated Queue,
+both shuffle states with a next-track skip between them, catalog search-to-play,
+all five labeled themes, and spectrum/waveform plus fullscreen. Light and Paper
+are also held in normal view; Paper has the longest hold and closes the cut.
+The tape captures `screenshot-paper.png` for the README. Settings navigation
+accounts for the active theme when reopening. Verify the frames and duration
+(maximum 120 seconds); timed keystrokes alone do not prove successful actions.
+This is focused feature coverage, not completion of the release gates below.
+
 ## Full public-release showcase (5–7 minutes)
 
 The existing tape is a short teaser, **not** coverage of all themes/options.

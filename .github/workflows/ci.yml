@@ -11,6 +11,8 @@ jobs:
     container: golang:1.27
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Install jq
         # release_workflow_test.go exercises .forgejo/scripts/publish-release.sh
         # which uses jq to parse the release JSON. Install it here so CI

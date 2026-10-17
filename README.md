@@ -4,7 +4,7 @@ A cliamp-style terminal player for Apple Music on Linux. [Cider](https://cider.s
 does the playback; sidecue controls it over Cider's local API and adds search,
 library, playlists, queue and spectrum/waveform visualizers.
 
-![sidecue playing Hard to Explain with album art, synced lyrics, the spectrum visualizer and catalog search results](demo/screenshot-player.png)
+![sidecue player with album art, lyrics, the spectrum visualizer and catalog search results](demo/screenshot-player.png)
 
 <p>
   <img src="demo/screenshot-fullscreen.png" alt="Full-screen spectrum visualizer with lyrics" width="49%">
@@ -16,7 +16,6 @@ against Cider 3.1.8, but release artifacts and the remaining manual checks are
 not yet signed off. Repositories on
 [Forgejo](https://git.thelunadog.com/alex/sidecue) and
 [GitHub](https://github.com/ajpeders/sidecue).
-See [ROADMAP.md](ROADMAP.md).
 
 ## Requirements
 
@@ -181,9 +180,8 @@ library).
 ## Docs
 
 [ARCHITECTURE.md](ARCHITECTURE.md) — how the pieces fit together ·
-[ROADMAP.md](ROADMAP.md) — what's built and what's next ·
 [HOWTO.md](HOWTO.md) — tokens, the Cider API, tests, troubleshooting ·
-[CONTRIBUTING.md](CONTRIBUTING.md) — how to pick up a card and send a change ·
+[CONTRIBUTING.md](CONTRIBUTING.md) — how to send a change ·
 [Demo and recording checklist](demo/README.md)
 
 ### Before publishing or reporting a bug
@@ -191,7 +189,8 @@ library).
 Linux is the release target; other platforms are build-only, not validated.
 Known issues awaiting live verification include long-session CPU/freezes,
 waveform spikes in quiet passages, missing covers on some tracks, and lyric
-layout jumps. See the release gates in [ROADMAP.md](ROADMAP.md).
+layout jumps. See the [live acceptance checklist](docs/release-gate-cid-29.md)
+and [demo checklist](demo/README.md).
 
 Keep Cider's API token authentication enabled and its API off the public
 Internet. Remote `CIDER_URL` connections over plain HTTP expose the token on

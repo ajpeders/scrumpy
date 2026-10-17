@@ -325,11 +325,12 @@ func (m Model) Init() tea.Cmd {
 }
 
 type pollMsg struct {
-	extra bool      // a one-off refresh: must not start a second tick chain
-	at    time.Time // when now-playing was sampled, before the other reads
-	now   NowPlaying
-	volOK bool // false when the volume read failed; keep the last known value
-	err   error
+	extra            bool      // a one-off refresh: must not start a second tick chain
+	at               time.Time // when now-playing was sampled, before the other reads
+	now              NowPlaying
+	playingConfirmed bool // is-playing explicitly reported true (not a failed/unknown read)
+	volOK            bool // false when the volume read failed; keep the last known value
+	err              error
 }
 type tickMsg struct{}
 type loadedMsg struct {
@@ -452,8 +453,10 @@ func poll(c Client) tea.Cmd {
 		var state struct {
 			IsPlaying *bool `json:"is_playing"`
 		}
-		n.Playing = c.Get("/api/v1/playback/is-playing", &state) != nil || state.IsPlaying == nil || *state.IsPlaying
-		return pollMsg{now: n, volOK: e == nil, at: sampledAt}
+		stateErr := c.Get("/api/v1/playback/is-playing", &state)
+		confirmed := stateErr == nil && state.IsPlaying != nil && *state.IsPlaying
+		n.Playing = stateErr != nil || state.IsPlaying == nil || *state.IsPlaying
+		return pollMsg{now: n, playingConfirmed: confirmed, volOK: e == nil, at: sampledAt}
 	}
 }
 
@@ -535,6 +538,20 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if !msg.volOK || time.Now().Before(m.volumeHeld) {
 			msg.now.Volume = m.now.Volume
+		}
+		// Cider can briefly return an idle-shaped now-playing response during
+		// a track/mode transition even though is-playing still says true. Do
+		// not turn that inconsistent pair into "Nothing playing", or invalidate
+		// lyrics/artwork and the queue's current track. An explicit false (or
+		// an unknown play state) still accepts the empty snapshot normally.
+		if msg.playingConfirmed && msg.now.ID == "" && msg.now.Title == "" && m.now.ID != "" {
+			previous := m.now
+			previous.Position = m.livePos()
+			previous.Playing = true
+			previous.Volume = msg.now.Volume
+			previous.ShuffleMode = msg.now.ShuffleMode
+			previous.RepeatMode = msg.now.RepeatMode
+			msg.now = previous
 		}
 		m.now = msg.now
 		m.polledAt = msg.at
