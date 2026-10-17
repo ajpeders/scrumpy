@@ -66,6 +66,87 @@ func TestStalePollFailureCannotDisconnectNewerPlayback(t *testing.T) {
 	}
 }
 
+func TestTransientPollFailureKeepsPlaybackView(t *testing.T) {
+	m := New(&fakeClient{})
+	m.now = NowPlaying{ID: "playing", Title: "Song", Playing: true}
+	m.polledAt = time.Now()
+	for attempt := 1; attempt <= 2; attempt++ {
+		updated, next := m.Update(pollMsg{at: m.polledAt.Add(time.Second), err: errors.New("timeout")})
+		m = updated.(Model)
+		if m.offline || m.now.ID != "playing" || next == nil || !strings.Contains(m.status, "retrying") {
+			t.Fatalf("temporary failure %d disconnected playback", attempt)
+		}
+	}
+	updated, next := m.Update(pollMsg{at: m.polledAt.Add(2 * time.Second), now: m.now})
+	m = updated.(Model)
+	if m.offline || m.pollFailures != 0 || m.status != "" || next == nil {
+		t.Fatal("successful poll did not clear the interrupted connection")
+	}
+}
+
+func TestRepeatedPollFailuresShowOfflineAndRecover(t *testing.T) {
+	m := New(&fakeClient{})
+	m.polledAt = time.Now()
+	for range 3 {
+		updated, _ := m.Update(pollMsg{at: m.polledAt.Add(time.Second), err: errors.New("timeout")})
+		m = updated.(Model)
+	}
+	if !m.offline {
+		t.Fatal("persistent failures did not show the offline screen")
+	}
+	updated, _ := m.Update(pollMsg{at: m.polledAt.Add(2 * time.Second), now: NowPlaying{Title: "Back"}})
+	m = updated.(Model)
+	if m.offline || m.pollFailures != 0 || m.now.Title != "Back" {
+		t.Fatal("poll did not reconnect automatically")
+	}
+}
+
+func TestOfflineRetriesAreCoalesced(t *testing.T) {
+	m := New(&fakeClient{})
+	m.offline = true
+	updated, first := m.Update(runeKey('r'))
+	m = updated.(Model)
+	if first == nil || !m.refreshLoading {
+		t.Fatal("offline retry was not tracked")
+	}
+	updated, duplicate := m.Update(runeKey('r'))
+	m = updated.(Model)
+	if duplicate != nil {
+		t.Fatal("repeated r started overlapping retries")
+	}
+	updated, next := m.Update(pollMsg{extra: true, err: errors.New("timeout")})
+	m = updated.(Model)
+	if m.refreshLoading || next != nil {
+		t.Fatal("failed one-off retry was not cleared or started another poll chain")
+	}
+	_, retry := m.Update(runeKey('r'))
+	if retry == nil {
+		t.Fatal("completed retry blocked subsequent attempts")
+	}
+}
+
+func TestSeekLineAdvancesBetweenPollsAndStopsWhenPaused(t *testing.T) {
+	m := New(&fakeClient{})
+	m.now = NowPlaying{Position: 10, Duration: 100, Playing: true}
+	m.polledAt = time.Now().Add(-2200 * time.Millisecond)
+	live := m.seekLine(200)
+	if !strings.Contains(live, "0:12 / 1:40") {
+		t.Fatal("timer did not advance between polls")
+	}
+	m.now.Playing = false
+	paused := m.seekLine(200)
+	if !strings.Contains(paused, "0:10 / 1:40") || strings.Count(live, "━") <= strings.Count(paused, "━") {
+		t.Fatal("seek bar did not interpolate playback or pause correctly")
+	}
+	m.now.Playing, m.now.Duration = true, 11
+	if !strings.Contains(m.seekLine(200), "0:11 / 0:11") {
+		t.Fatal("timer exceeded the track duration")
+	}
+	if m.now.Position != 10 {
+		t.Fatal("rendering changed the authoritative playback position")
+	}
+}
+
 func TestPlaybackRefreshesAreCoalesced(t *testing.T) {
 	fake := &fakeClient{}
 	m := New(fake)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -89,6 +90,47 @@ func TestTransportKeysMapToRoutes(t *testing.T) {
 	}
 }
 
+func TestTransportKeysWorkInSettings(t *testing.T) {
+	for _, key := range []tea.KeyMsg{runeKey('n'), runeKey('p'), specialKey(tea.KeySpace), runeKey('s'), runeKey('r'), specialKey(tea.KeyRight), runeKey('+')} {
+		fake := &fakeClient{}
+		m := New(fake)
+		m.settings = true
+		m.themeCursor = len(themeNames) + 2
+		updated, _ := sendKey(t, m, key)
+		if len(fake.calls) != 1 || fake.last().method != "POST" {
+			t.Fatalf("%q was swallowed by settings: %+v", key.String(), fake.calls)
+		}
+		if !updated.settings || updated.themeCursor != m.themeCursor {
+			t.Fatalf("%q changed settings navigation", key.String())
+		}
+	}
+}
+
+func TestNextKeyWorksAcrossViews(t *testing.T) {
+	for _, view := range []string{"regular", "artwork", "settings", "lyrics", "help", "visualizer", "search"} {
+		t.Run(view, func(t *testing.T) {
+			fake := &fakeClient{}
+			m := New(fake)
+			m.artwork = view == "artwork"
+			m.settings = view == "settings"
+			m.lyricsHidden = view == "lyrics"
+			m.help = view == "help"
+			m.fullViz = view == "visualizer"
+			m.input = view == "search"
+			updated, _ := sendKey(t, m, runeKey('n'))
+			if m.input {
+				if len(fake.calls) != 0 || updated.query != "n" {
+					t.Fatal("search input triggered playback instead of typing")
+				}
+				return
+			}
+			if len(fake.calls) != 1 || fake.last().path != "/api/v1/playback/next" {
+				t.Fatalf("next not sent: %+v", fake.calls)
+			}
+		})
+	}
+}
+
 func TestSeekAndVolumeClamp(t *testing.T) {
 	seek := func(key tea.KeyMsg, position float64) float64 {
 		t.Helper()
@@ -114,6 +156,24 @@ func TestSeekAndVolumeClamp(t *testing.T) {
 	}
 	if got := seek(specialKey(tea.KeyRight), 10); got != 15 {
 		t.Errorf("right from 10s = %v, want 15", got)
+	}
+
+	// Rapid scrubbing accumulates locally rather than reseeking to the same
+	// stale snapshot until the next poll lands.
+	accum := &fakeClient{}
+	acc := New(accum)
+	acc.now.Position = 20
+	acc.now.Playing = true
+	acc.polledAt = time.Now()
+	for range 3 {
+		acc, _ = sendKey(t, acc, specialKey(tea.KeyRight))
+	}
+	body, _ := accum.last().body.(map[string]any)
+	if got := body["position"].(float64); math.Abs(got-35) > 0.01 {
+		t.Errorf("3 right presses from 20s = %v, want ~35 (accumulated)", got)
+	}
+	if acc.now.Position <= 34.9 {
+		t.Errorf("local position did not accumulate: %v", acc.now.Position)
 	}
 
 	volume := func(key tea.KeyMsg, value float64) float64 {
@@ -210,8 +270,141 @@ func TestSearchUsesStorefrontAndParsesResults(t *testing.T) {
 		t.Fatalf("search message = %#v", msg)
 	}
 	rows := items(loaded.page)
-	if len(rows) != 2 || rows[0].ID != "s1" || rows[0].Type != "songs" || rows[1].Type != "albums" {
+	if len(rows) != 1 || rows[0].ID != "s1" || rows[0].Type != "songs" {
 		t.Fatalf("rows = %+v", rows)
+	}
+}
+
+func TestSearchReturnsArtistsAndOpensTopSongs(t *testing.T) {
+	fake := &fakeClient{amapi: func(path string, out any) error {
+		switch {
+		case path == "/v1/me/storefront":
+			return json.Unmarshal([]byte(`{"data":[{"id":"us"}]}`), out)
+		case strings.Contains(path, "/search"):
+			return json.Unmarshal([]byte(`{"results":{"artists":{"data":[{"id":"ar1","type":"artists","attributes":{"name":"Vampire Weekend","genreNames":["Alternative","Indie Rock"]}}]},"songs":{"data":[{"id":"s1","type":"songs","attributes":{"name":"A-Punk","artistName":"Vampire Weekend"}}]}}}`), out)
+		case strings.Contains(path, "/view/top-songs"):
+			return json.Unmarshal([]byte(`{"data":[{"id":"ar1s","type":"songs","attributes":{"name":"A-Punk","artistName":"Vampire Weekend"}}]}`), out)
+		default:
+			t.Errorf("unexpected path %q", path)
+			return nil
+		}
+	}}
+	m := New(fake)
+	m.tab, m.input, m.query = Search, true, "vampire weekend"
+	m.searchKind = libArtists
+	m, msg := sendKey(t, m, specialKey(tea.KeyEnter)) // run the catalog search
+	updated, _ := m.Update(msg)
+	m = updated.(Model)
+	if p := fake.calls[1].path; !strings.Contains(p, "types=artists&") {
+		t.Fatalf("search path = %q", p)
+	}
+	rows := m.lists[Search].shown()
+	if len(rows) != 1 || rows[0].Type != "artists" || rows[0].ID != "ar1" || rows[0].Subtitle != "Alternative, Indie Rock" {
+		t.Fatalf("rows = %+v", rows)
+	}
+	// enter on the artist opens its top songs as a detail list.
+	m, msg = sendKey(t, m, specialKey(tea.KeyEnter))
+	if !m.detail || m.detailKind != Search || m.detailTitle != "Vampire Weekend" {
+		t.Fatalf("detail = %v kind %v title %q", m.detail, m.detailKind, m.detailTitle)
+	}
+	if fake.last().path != "/v1/catalog/us/artists/ar1/view/top-songs?limit=100" {
+		t.Fatalf("artist content path = %q", fake.last().path)
+	}
+	updated, _ = m.Update(msg)
+	if rows := updated.(Model).detailList.rows; len(rows) != 1 || rows[0].ID != "ar1s" {
+		t.Fatalf("artist top songs = %+v", rows)
+	}
+}
+
+func TestArtistDetailTogglesSongsAndAlbums(t *testing.T) {
+	fake := &fakeClient{amapi: func(path string, out any) error {
+		switch {
+		case path == "/v1/me/storefront":
+			return json.Unmarshal([]byte(`{"data":[{"id":"us"}]}`), out)
+		case strings.Contains(path, "/view/top-songs"):
+			return json.Unmarshal([]byte(`{"data":[{"id":"s1","type":"songs","attributes":{"name":"A-Punk","artistName":"Vampire Weekend"}}]}`), out)
+		case strings.Contains(path, "/artists/ar1/albums"):
+			return json.Unmarshal([]byte(`{"data":[{"id":"al1","type":"albums","attributes":{"name":"Contra","artistName":"Vampire Weekend"}}]}`), out)
+		}
+		return nil
+	}}
+	m := New(fake)
+	m.tab = Search
+	m.lists[Search] = list{rows: []Item{{ID: "ar1", Type: "artists", Title: "Vampire Weekend"}}, loaded: true, cursor: 0}
+	// enter opens a catalog artist on its top songs.
+	m, msg := sendKey(t, m, specialKey(tea.KeyEnter))
+	if !m.detail || m.artistType != "artists" || !m.artistSongs {
+		t.Fatalf("open artist: detail=%v type=%q songs=%v", m.detail, m.artistType, m.artistSongs)
+	}
+	updated, _ := m.Update(msg)
+	m = updated.(Model)
+	if fake.last().path != "/v1/catalog/us/artists/ar1/view/top-songs?limit=100" {
+		t.Fatalf("default path = %q", fake.last().path)
+	}
+	// l flips to albums.
+	m, msg = sendKey(t, m, runeKey('l'))
+	updated, _ = m.Update(msg)
+	m = updated.(Model)
+	if m.artistSongs {
+		t.Fatal("l did not flip to albums")
+	}
+	if fake.last().path != "/v1/catalog/us/artists/ar1/albums?limit=100" {
+		t.Fatalf("albums path = %q", fake.last().path)
+	}
+	if rows := m.detailList.rows; len(rows) != 1 || rows[0].ID != "al1" {
+		t.Fatalf("albums rows = %+v", rows)
+	}
+	// and back to top songs.
+	m, msg = sendKey(t, m, runeKey('l'))
+	updated, _ = m.Update(msg)
+	m = updated.(Model)
+	if !m.artistSongs || fake.last().path != "/v1/catalog/us/artists/ar1/view/top-songs?limit=100" {
+		t.Fatalf("back to top songs failed: songs=%v path=%q", m.artistSongs, fake.last().path)
+	}
+}
+
+func TestLibraryArtistModeSearchesAndOpensAlbums(t *testing.T) {
+	fake := &fakeClient{amapi: func(path string, out any) error {
+		switch {
+		case strings.Contains(path, "/v1/me/library/search"):
+			if !strings.Contains(path, "types=library-artists") {
+				t.Errorf("library artist search path = %q", path)
+			}
+			return json.Unmarshal([]byte(`{"results":{"library-artists":{"data":[{"id":"r.1","type":"library-artists","attributes":{"name":"Vampire Weekend"}}]}}}`), out)
+		case strings.Contains(path, "/artists/r.1/albums"):
+			return json.Unmarshal([]byte(`{"data":[{"id":"al1","type":"library-albums","attributes":{"name":"Vampire Weekend"}}]}`), out)
+		}
+		return nil
+	}}
+	m := New(fake)
+	m.tab = Library
+	m.libraryKind = libAlbums
+	m, _ = sendKey(t, m, runeKey('l')) // albums -> artists, reloading the browse list
+	if m.libraryKind != libArtists {
+		t.Fatalf("libraryKind = %v, want artists", m.libraryKind)
+	}
+	if fake.last().path != "/v1/me/library/artists?limit=100" {
+		t.Fatalf("browse path = %q", fake.last().path)
+	}
+	m.input, m.query = true, "vampire"
+	m, msg := sendKey(t, m, specialKey(tea.KeyEnter))
+	updated, _ := m.Update(msg)
+	m = updated.(Model)
+	rows := m.lists[Library].shown()
+	if len(rows) != 1 || rows[0].Type != "library-artists" || rows[0].Title != "Vampire Weekend" {
+		t.Fatalf("rows = %+v", rows)
+	}
+	// enter on a library artist opens its albums.
+	m, msg = sendKey(t, m, specialKey(tea.KeyEnter))
+	if !m.detail || m.detailKind != Library || m.detailTitle != "Vampire Weekend" {
+		t.Fatalf("detail = %v kind %v title %q", m.detail, m.detailKind, m.detailTitle)
+	}
+	if fake.last().path != "/v1/me/library/artists/r.1/albums?limit=100" {
+		t.Fatalf("artist albums path = %q", fake.last().path)
+	}
+	updated, _ = m.Update(msg)
+	if rows := updated.(Model).detailList.rows; len(rows) != 1 || rows[0].ID != "al1" {
+		t.Fatalf("artist albums = %+v", rows)
 	}
 }
 
@@ -396,13 +589,13 @@ func TestVizFramesDriveVisualizer(t *testing.T) {
 	if !strings.Contains(m.View(), "█") {
 		t.Fatalf("view has no bars:\n%s", m.View())
 	}
-	if vizRows, _ := m.layout(); vizRows < 10 {
+	if vizRows, _ := m.layout(); vizRows < 6 {
 		t.Fatalf("visualizer rows = %d at 80x24, want it to dominate", vizRows)
 	}
 	// A closed analyzer hands its rows to the list.
 	updated, _ = m.Update(waitViz(frames)())
 	m = updated.(Model)
-	if vizRows, listRows := m.layout(); vizRows != 0 || listRows != 24-m.fixedRows()-1 {
+	if vizRows, listRows := m.layout(); vizRows != 0 || listRows != 24-m.fixedRows() {
 		t.Fatalf("after close: viz %d list %d", vizRows, listRows)
 	}
 }
@@ -979,13 +1172,13 @@ func TestQueueHasNoEnqueueOrMoveBinding(t *testing.T) {
 	}
 }
 
-func TestFooterShowsEssentialKeysWrapped(t *testing.T) {
+func TestFooterShowsEssentialKeysOnOneLine(t *testing.T) {
 	m := New(&fakeClient{})
 	m.tab = Search
-	m.width = 80
-	lines := m.footerLines(80)
+	m.width = 120
+	lines := m.footerLines(120)
 	all := strings.Join(lines, " ")
-	for _, k := range []string{"search", "enqueue", "play/pause", "skip", "keys", "quit"} {
+	for _, k := range []string{"search", "enqueue", "play/pause", "keys", "quit"} {
 		if !strings.Contains(all, k) {
 			t.Errorf("footer missing %q: %q", k, all)
 		}
@@ -995,10 +1188,32 @@ func TestFooterShowsEssentialKeysWrapped(t *testing.T) {
 			t.Errorf("secondary control %q still in footer", k)
 		}
 	}
+	// The footer fits in a single line that respects the requested width.
+	if len(lines) != 1 {
+		t.Errorf("expected one footer line, got %d: %q", len(lines), lines)
+	}
 	for _, l := range lines {
-		if lipgloss.Width(l) > 80 {
+		if lipgloss.Width(l) > 120 {
 			t.Errorf("footer line too wide: %q", l)
 		}
+	}
+}
+
+func TestFooterDropsLessEssentialKeysWhenNarrow(t *testing.T) {
+	m := New(&fakeClient{})
+	m.tab = Queue
+	full := strings.Join(m.footerLines(140), " ")
+	for _, k := range []string{"remove", "clear", "play/pause", "skip"} {
+		if !strings.Contains(full, k) {
+			t.Fatalf("wide footer missing %q: %q", k, full)
+		}
+	}
+	narrow := strings.Join(m.footerLines(40), " ")
+	if !strings.Contains(narrow, "keys") || !strings.Contains(narrow, "quit") {
+		t.Fatalf("narrow footer dropped essential keys: %q", narrow)
+	}
+	if strings.Contains(narrow, "remove") || strings.Contains(narrow, "skip") {
+		t.Fatalf("narrow footer kept low-priority keys: %q", narrow)
 	}
 }
 

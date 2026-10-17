@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -15,46 +16,135 @@ import (
 // playing, seek bar and the footer's key lines. The tab row is added whenever
 // the list is shown.
 func (m Model) fixedRows() int {
-	return 2 + len(m.nowLines()) + len(m.footerLines(max(1, m.width)))
+	w := max(1, m.width)
+	lyricsBand := 0
+	lyricsBreathing := 0
+	if m.lyricsBandShown() {
+		lyricsBand = m.lyricsBandRows()
+		// One breathing row sits between the boxed lyrics panel and the seek
+		// bar (see View()), keeping the band from butting up against the
+		// transport. Layout needs to reserve it so the bottom panel can't
+		// steal it from the list.
+		lyricsBreathing = 1
+	}
+	return 1 + lyricsBand + lyricsBreathing + len(m.nowLines()) + btoi(m.artworkShown()) +
+		len(m.seekLines(w)) + len(m.footerLines(m.bottomWidth())) + 2*btoi(m.bottomBordered())
+}
+
+func (m Model) bottomBordered() bool {
+	return !m.fullScreenViz() && m.width >= 12 && m.height >= 10
+}
+
+func (m Model) bottomWidth() int {
+	return max(1, m.width-2*btoi(m.bottomBordered()))
 }
 
 func (m Model) vizAvailable() bool  { return (m.viz != nil || m.vizFrames != nil) && !m.vizClosed }
 func (m Model) fullScreenViz() bool { return m.fullViz && m.vizAvailable() }
 
+// lyricsBandRows is the height of the boxed lyrics panel placed below the
+// now-playing line when album art is hidden. In the normal layout the band is
+// a modest strip so the queue below stays usable; in full-screen visualizer
+// mode (`v`) it expands so the lyrics read like the main feature.
+//
+// Minimum 5 rows in normal mode: 2 for box borders, 3 for content so the
+// current line can be centred with a line above and below it (the lyrics
+// follow algorithm scrolls on the current line, not just after it).
+func (m Model) lyricsBandRows() int {
+	if m.fullScreenViz() {
+		return min(12, max(6, m.height/3))
+	}
+	return min(7, max(5, m.height/6))
+}
+
+// lyricsBandShown reports whether the lyrics belong in their own band beneath
+// the visualizer. Artwork already has its own boxed lyrics (see artBand), and
+// a session-only `y` press tucks the lyrics away, so neither replaces this band.
+func (m Model) lyricsBandShown() bool {
+	return m.lyricsOn && !m.lyricsHidden && !m.artworkShown() && m.width >= 24
+}
+
 // layout gives the visualizer about 60% of the free rows and the list the rest
 // (at least 3). Without a visualizer, or with too few rows for one, the list
-// takes everything.
+// takes everything. fixedRows already accounts for the artwork band and the
+// lyrics band, so neither needs to be subtracted here.
 func (m Model) layout() (vizRows, listRows int) {
 	free := m.height - m.fixedRows()
-	if !m.fullScreenViz() && !m.lyricsExpanded {
+	if !m.fullScreenViz() && !m.bottomBordered() {
 		free-- // tab row
 	}
 	free = max(0, free)
 	switch {
 	case !m.vizAvailable():
+		// Tiny view with no borders or visualizer: keep the list visible even
+		// when there's only a single row of slack. fit() will drop the
+		// footer's line if the bottom panel runs over, which is the right
+		// trade — the menu tells the user what they can do.
+		if !m.bottomBordered() && free < 1 {
+			return 0, 1
+		}
 		return 0, free
 	case m.fullScreenViz():
-		return free, 0
+		return max(0, free-btoi(m.artworkShown())), 0
 	}
 	listRows = max(3, free*2/5)
 	if m.settings || m.help {
 		listRows = min(free, max(listRows, 12))
 	}
 	if vizRows = free - listRows; vizRows < 2 {
+		// Not enough room for both a 2-row minimum visualizer and a 3-row
+		// minimum list. At the same time, when the terminal is too small for
+		// the visualizer's floor, we still want to keep the list reachable —
+		// especially after `y` hides the lyrics and leaves the bottom panel
+		// as the user's only navigation. Give the list at least one row when
+		// the bottom is unbordered, mirroring the no-viz fallback above.
+		if !m.bottomBordered() && free < 1 {
+			return 0, 1
+		}
 		return 0, free
 	}
 	return vizRows, listRows
 }
 
+// coverStandIn is a zero-width APC that holds the kitty cover's place while the
+// frame is laid out.
+const coverStandIn = "\x1b_Gcover\x1b\\"
+
+// View lays out the frame around a stand-in for the kitty cover, then swaps the
+// cover back in. The cover is a base64 PNG of up to megabytes, and measuring it
+// in pad, fit and lipgloss on every visualizer redraw cost more than a frame.
 func (m Model) View() string {
+	cover := ""
+	if len(m.coverLines) > 0 && strings.HasPrefix(m.coverLines[0], "\x1b_G") {
+		cover = m.coverLines[0]
+		// Copy: m.coverLines shares its backing array with the stored model.
+		m.coverLines = append([]string{coverStandIn}, m.coverLines[1:]...)
+	}
+	return strings.Replace(m.view(), coverStandIn, cover, 1)
+}
+
+func (m Model) view() string {
 	w := max(1, m.width)
 	lines := []string{m.headerLine(w)}
+	// Graphics outlive text redraws. Explicitly remove our placement whenever
+	// its band is hidden (including offline and narrow-window views).
+	if artworkMode == artKitty && (m.offline || m.now.Title == "" || len(m.coverLines) == 0 || !m.artworkShown()) {
+		lines[0] = fmt.Sprintf("\x1b_Ga=d,d=I,i=%d,q=2;\x1b\\", kittyImageID) + lines[0]
+	}
 	if m.offline {
 		lines = append(lines, m.offlineLines(w, m.height-1)...)
-		return m.themedFrame(fit(lines, w, m.height), w)
+		return m.themedFrame(fit(dropDetailsImage(lines), w, m.height), w)
 	}
 	vizRows, listRows := m.layout()
-	if vizRows > 0 {
+	lyricsRows := 0
+	// In full-screen visualizer mode the bars fill the body. When `?`
+	// opens the help overlay, the lyrics band competes with help for rows
+	// and the user has explicitly asked for help; let help win. Pressing
+	// `?` again (or `esc`) closes help and the lyrics come back.
+	if m.lyricsBandShown() && (vizRows > 0 || !m.vizAvailable()) && !(m.fullScreenViz() && m.help) {
+		lyricsRows = m.lyricsBandRows()
+	}
+	if vizRows > 0 && !(m.help && m.fullScreenViz()) {
 		if m.waveform {
 			samples := m.samples
 			if !m.now.Playing {
@@ -64,26 +154,79 @@ func (m Model) View() string {
 		} else {
 			lines = append(lines, renderSpectrum(m.meter.levels, m.meter.peaks, w, vizRows)...)
 		}
+		if m.artworkShown() {
+			lines = append(lines, "")
+		}
 	}
 	lines = append(lines, m.nowLines()...)
-	lines = append(lines, m.seekLine(w))
+	if m.artworkShown() {
+		lines = append(lines, "") // breathing room between artwork and transport
+	}
+	if lyricsRows > 0 {
+		// Lyrics panel sits between the now-playing metadata and the seek bar
+		// at full terminal width so long wrapped lines stay readable; the list
+		// in the bottom panel keeps browsing in reach below it.
+		innerW := w - 2
+		body := m.lyricsLines(max(0, innerW-2), lyricsRows-2)
+		lines = append(lines, panelBox("Lyrics", body, w, lyricsRows)...)
+		lines = append(lines, "") // breathing room between lyrics and seek bar
+	}
+	lines = append(lines, m.seekLines(w)...)
 	if !m.fullScreenViz() {
-		if !m.lyricsExpanded {
-			lines = append(lines, m.tabLine())
+		bw := m.bottomWidth()
+		var bottom []string
+		if !m.bottomBordered() {
+			bottom = append(bottom, m.tabLine())
 		}
 		switch {
 		case m.settings:
-			lines = append(lines, m.settingsLines(w, listRows)...)
+			bottom = append(bottom, m.settingsLines(bw, listRows)...)
 		case m.help:
-			lines = append(lines, helpLines(w, listRows)...)
-		case m.lyricsExpanded:
-			lines = append(lines, m.sidePanel(w, listRows)...)
+			bottom = append(bottom, helpLines(bw, listRows)...)
 		default:
-			lines = append(lines, m.menuLines(w, listRows)...)
+			bottom = append(bottom, m.menuLines(bw, listRows)...)
+		}
+		bottom = append(bottom, m.footerLines(bw)...)
+		if m.bottomBordered() {
+			bottom = panelBox("", bottom, w, len(bottom)+2)
+			bottom[0] = m.tabBorder(w)
+		}
+		lines = append(lines, bottom...)
+	} else {
+		if m.help {
+			// Full-screen visualizer mode hides the list panel, but help
+			// is still reachable (? toggles it). The viz rows are skipped
+			// above when both are active, so the help overlay can use the
+			// remaining body height — minus the lyrics band, its breathing
+			// row, now-playing, the seek bar and the footer.
+			body := m.height - 1 - len(m.footerLines(w))
+			body -= len(m.nowLines()) + len(m.seekLines(w))
+			body -= lyricsRows
+			if lyricsRows > 0 {
+				body-- // breathing row between lyrics panel and seek bar
+			}
+			hl := helpLines(w, max(0, body))
+			lines = append(lines, hl...)
+		}
+		lines = append(lines, m.footerLines(w)...)
+	}
+	return m.themedFrame(fit(dropDetailsImage(lines), w, m.height), w)
+}
+
+// dropDetailsImage deletes the d panel's kitty image when no line places it
+// (panel closed, too narrow, or scrolled out), since graphics outlive redraws.
+func dropDetailsImage(lines []string) []string {
+	if artworkMode != artKitty || len(lines) == 0 {
+		return lines
+	}
+	place := fmt.Sprintf(",i=%d,", detailsImageID)
+	for _, l := range lines {
+		if strings.Contains(l, place) {
+			return lines
 		}
 	}
-	lines = append(lines, m.footerLines(w)...)
-	return m.themedFrame(fit(lines, w, m.height), w)
+	lines[0] = fmt.Sprintf("\x1b_Ga=d,d=I,i=%d,q=2;\x1b\\", detailsImageID) + lines[0]
+	return lines
 }
 
 func (m Model) themedFrame(frame string, w int) string {
@@ -207,8 +350,29 @@ func renderSpectrum(levels, peaks []float64, width, height int) []string {
 	return lines
 }
 
+// waveformNoiseFloor drops samples whose absolute value is below this
+// threshold before drawing the envelope. Codec DC offset, capture
+// jitter and PipeWire's reporting of quiet passages all leak a tiny
+// non-zero value that the old renderWaveform scaled to a visible row.
+// 0.01 is conservative: a real signal at -20 dBFS (≈ 0.10) is still
+// fifty times louder than the floor, so this only eats true silence.
+const waveformNoiseFloor = 0.01
+
 // renderWaveform draws the latest PCM hop as a vertical min/max envelope. Each
 // column represents a time slice, preserving transients even on narrow screens.
+//
+// A raw per-column min/max is fragile: capture jitter, codec DC offset and
+// isolated spike samples all push the envelope out to the full height even
+// during quiet passages. Two defenses:
+//
+//  1. Noise gate: samples below waveformNoiseFloor count as zero before the
+//     min/max is computed, so sub-floor jitter doesn't paint a visible bar.
+//
+//  2. Percentile clamp per column: after collecting the column's samples, we
+//     drop the top and bottom 10% before taking the min/max. A lone outlier
+//     (e.g. a single 0.4 sample in an otherwise silent column) is bounded
+//     by its surviving neighbours, so the envelope reflects what the bulk of
+//     the column sounds like.
 func renderWaveform(samples []float64, width, height int) []string {
 	if width <= 0 || height <= 0 {
 		return nil
@@ -218,18 +382,22 @@ func renderWaveform(samples []float64, width, height int) []string {
 		grid[y] = []rune(strings.Repeat(" ", width))
 	}
 	centre := (height - 1) / 2
+	halfHeight := float64(height-1) / 2
 	for x := range width {
-		lo, hi := 0.0, 0.0
-		if len(samples) > 0 {
-			start := x * len(samples) / width
-			end := max(start+1, (x+1)*len(samples)/width)
-			for i := start; i < min(end, len(samples)); i++ {
-				lo = min(lo, samples[i])
-				hi = max(hi, samples[i])
+		col := columnSamples(samples, x, width)
+		clamped := percentileClamp(col)
+		gated := noiseGate(clamped, waveformNoiseFloor)
+		var hi, lo float64
+		for _, v := range gated {
+			if v > hi {
+				hi = v
+			}
+			if v < lo {
+				lo = v
 			}
 		}
-		top := max(0, min(height-1, centre-int(math.Round(hi*float64(height-1)/2))))
-		bottom := max(0, min(height-1, centre-int(math.Round(lo*float64(height-1)/2))))
+		top := max(0, min(height-1, centre-int(math.Round(hi*halfHeight))))
+		bottom := max(0, min(height-1, centre-int(math.Round(lo*halfHeight))))
 		for y := top; y <= bottom; y++ {
 			grid[y][x] = '│'
 		}
@@ -241,6 +409,55 @@ func renderWaveform(samples []float64, width, height int) []string {
 	return lines
 }
 
+// columnSamples returns the slice of `samples` that map to column `x` of a
+// waveform of the given width. The mapping mirrors what renderWaveform
+// was doing before: each column covers a contiguous slice whose bounds
+// round in the same way.
+func columnSamples(samples []float64, x, width int) []float64 {
+	if len(samples) == 0 {
+		return nil
+	}
+	start := x * len(samples) / width
+	end := max(start+1, (x+1)*len(samples)/width)
+	if end > len(samples) {
+		end = len(samples)
+	}
+	return samples[start:end]
+}
+
+// percentileClamp drops the top and bottom 10% of the column's samples
+// (at least one from each end) before returning what's left, so a lone
+// spike cannot stretch the envelope to full height. Trimming the signed
+// extremes, not by magnitude, keeps symmetric audio symmetric. Columns
+// of length two or less are returned unchanged: every sample is needed.
+func percentileClamp(col []float64) []float64 {
+	n := len(col)
+	if n <= 2 {
+		return col
+	}
+	cp := make([]float64, n)
+	copy(cp, col)
+	const dropFraction = 0.10
+	drop := max(1, int(float64(n)*dropFraction))
+	sort.Float64s(cp)
+	return cp[drop : n-drop]
+}
+
+// noiseGate zeros every sample below the floor. Applied after the
+// percentile clamp so the clamp doesn't drag a low outlier upward by
+// re-ranking it next to its silent neighbours.
+func noiseGate(samples []float64, floor float64) []float64 {
+	out := make([]float64, len(samples))
+	for i, v := range samples {
+		if v > -floor && v < floor {
+			out[i] = 0
+		} else {
+			out[i] = v
+		}
+	}
+	return out
+}
+
 func btoi(b bool) int {
 	if b {
 		return 1
@@ -250,7 +467,11 @@ func btoi(b bool) int {
 
 func (m Model) nowLines() []string {
 	if m.now.Title == "" {
-		return []string{" " + dimStyle.Render("♪ Nothing playing")}
+		meta := []string{" " + dimStyle.Render("♪ Nothing playing")}
+		if m.artworkShown() {
+			return m.artBand(meta)
+		}
+		return meta
 	}
 	// Glyphs here must be one column in every terminal: ▶ and ⏸ have emoji
 	// forms some terminals draw two wide, which wraps lines and garbles the
@@ -259,7 +480,7 @@ func (m Model) nowLines() []string {
 	if !m.now.Playing {
 		icon = accentStyle.Render("‖ ")
 	}
-	title := " " + icon + textStyle.Bold(true).Render(displayText(m.now.Title))
+	meta := []string{" " + icon + textStyle.Bold(true).Render(displayText(m.now.Title))}
 	var details []string
 	if m.now.ArtistName != "" {
 		details = append(details, textStyle.Render(displayText(m.now.ArtistName)))
@@ -267,14 +488,92 @@ func (m Model) nowLines() []string {
 	if m.now.AlbumName != "" {
 		details = append(details, dimStyle.Render(displayText(m.now.AlbumName)))
 	}
-	if len(details) == 0 {
-		return []string{title}
+	if len(details) > 0 {
+		meta = append(meta, "   "+strings.Join(details, dimStyle.Render(" · ")))
 	}
-	return []string{title, "   " + strings.Join(details, dimStyle.Render(" · "))}
+
+	if m.artworkShown() {
+		return m.artBand(meta)
+	}
+	return meta
+}
+
+// artworkShown reports whether the artwork band fits. Reserve it even while
+// metadata or a cover is loading, so track changes cannot resize the visualizer.
+func (m Model) artworkShown() bool {
+	// Keep the seek bar, tabs, footer and at least three browsing rows visible.
+	w := max(1, m.width)
+	cols, rows := m.artworkBandSize()
+	minHeight := rows + 6 + len(m.seekLines(w)) + len(m.footerLines(m.bottomWidth())) + btoi(m.bottomBordered())
+	return m.artwork &&
+		m.width >= cols+24 && m.height >= minHeight
+}
+
+func (m Model) artworkBandSize() (cols, rows int) {
+	if artworkMode == artKitty {
+		return m.artworkSize() // high-resolution PNG contains its border
+	}
+	return artworkBandCols, artworkBandRows
+}
+
+func (m Model) artworkSize() (cols, rows int) {
+	if m.coverCols > 0 && m.coverRows > 0 {
+		return m.coverCols, m.coverRows
+	}
+	return artworkCols, artworkRows
+}
+
+// artBand lays the cover on the left and the metadata on the right, with the
+// lyrics in a boxed block directly under the song and artist, for as many rows
+// as the cover spans.
+func (m Model) artBand(meta []string) []string {
+	art := m.coverLines
+	if m.now.Title == "" {
+		art = nil
+	}
+	artW, rows := m.artworkBandSize()
+	const gap = 2
+	if artworkMode != artKitty {
+		art = panelBox("", art, artW, rows)
+	}
+	rightW := m.width - artW - gap
+
+	metaRows := len(meta) // 1 (title) or 2 (title + artist/album)
+	lyricsRows := rows - metaRows
+	var lyricsBox []string
+	if m.lyricsOn && !m.lyricsHidden && lyricsRows >= 2 {
+		body := m.lyricsLines(max(0, rightW-2), lyricsRows-2)
+		lyricsBox = panelBox("Lyrics", body, rightW, lyricsRows)
+	}
+
+	out := make([]string, rows)
+	for i := range rows {
+		cover := ""
+		if i < len(art) {
+			cover = art[i]
+		}
+		line := pad(cover, artW) + strings.Repeat(" ", gap)
+		switch {
+		case i < metaRows:
+			line += pad(meta[i], rightW)
+		case i-metaRows < len(lyricsBox):
+			line += lyricsBox[i-metaRows]
+		default:
+			line += strings.Repeat(" ", rightW)
+		}
+		out[i] = line
+	}
+	return out
 }
 
 func (m Model) seekLine(w int) string {
-	right := dimStyle.Render(fmt.Sprintf("  %s / %s ", clock(m.now.Position), clock(m.now.Duration)))
+	lines := m.seekLines(w)
+	return lines[len(lines)/2]
+}
+
+func (m Model) seekLines(w int) []string {
+	pos := m.livePos()
+	right := dimStyle.Render(fmt.Sprintf("  %s / %s ", clock(pos), clock(m.now.Duration)))
 	shuffle := faintStyle.Render("Shuffle")
 	if m.now.ShuffleMode == "on" {
 		shuffle = accentStyle.Render("Shuffle")
@@ -289,16 +588,38 @@ func (m Model) seekLine(w int) string {
 		repeat = faintStyle.Render(repeat)
 	}
 	right += shuffle + " " + repeat + " "
-	barW := w - 1 - ansi.StringWidth(right)
+	// One cell of outer padding on both sides, plus the two border columns.
+	barW := w - 3 - ansi.StringWidth(right)
 	if barW < 4 {
-		return " " + right
+		return []string{pad(" "+right, max(0, w))}
 	}
-	if m.now.Duration <= 0 {
-		return " " + faintStyle.Render(strings.Repeat("─", barW)) + right
+	progress := strings.Repeat(" ", barW)
+	if m.now.Duration > 0 {
+		progress = seekProgress(pos/m.now.Duration, barW)
 	}
-	head := int(min(1, max(0, m.now.Position/m.now.Duration)) * float64(barW-1))
-	return " " + accentStyle.Render(strings.Repeat("━", head)+"●") +
-		faintStyle.Render(strings.Repeat("─", barW-1-head)) + right
+	return []string{
+		" " + dimStyle.Render("[") + progress + dimStyle.Render("]") + right,
+	}
+}
+
+// seekProgress keeps the track thin, with a half-cell tip for interpolated time.
+func seekProgress(progress float64, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	units := int(min(1, max(0, progress)) * float64(w) * 2)
+	full, fraction := units/2, units%2
+	filled := strings.Repeat("━", full)
+	if fraction > 0 {
+		filled += "╸"
+	}
+	return accentStyle.Render(filled) + strings.Repeat(" ", w-full-btoi(fraction > 0))
+}
+
+func (m Model) tabBorder(w int) string {
+	label := ansi.Truncate(m.tabLine(), max(0, w-4), "…")
+	return dimStyle.Render("╭─") + label +
+		dimStyle.Render(" "+strings.Repeat("─", max(0, w-4-ansi.StringWidth(label)))+"╮")
 }
 
 func (m Model) tabLine() string {
@@ -313,29 +634,60 @@ func (m Model) tabLine() string {
 	}
 	b.WriteString("  ")
 	if m.detail {
-		b.WriteString(accentStyle.Render("‹ "+displayText(m.detailTitle)) + "  ")
+		b.WriteString(accentStyle.Render("‹ " + displayText(m.detailTitle)))
+		if m.artistType != "" && m.artistType != "library-artists" {
+			view := "albums"
+			if m.artistSongs {
+				view = "top songs"
+			}
+			b.WriteString(dimStyle.Render(" · " + view))
+		}
+		b.WriteString("  ")
 	}
 	filter := m.active().filter
 	switch {
 	case m.input:
 		label := map[scope]string{catalogScope: "Apple Music", libraryScope: "library", filterScope: "filter"}[m.scope()]
+		if m.scope() == catalogScope {
+			label += " · " + libraryKindNames[m.searchKind]
+		}
 		b.WriteString(dimStyle.Render(label+" / ") + textStyle.Render(m.query) + accentStyle.Render("▌"))
 	case filter != "":
 		b.WriteString(dimStyle.Render("filter ") + textStyle.Render(filter) + faintStyle.Render("  esc clear"))
 	case m.detail:
 		b.WriteString(faintStyle.Render("esc back"))
-	case m.tab == Search && m.searchTerm != "":
-		b.WriteString(dimStyle.Render("/ ") + textStyle.Render(m.searchTerm))
+	case m.tab == Search:
+		next := strings.ToLower(libraryKindNames[(m.searchKind+1)%3])
+		b.WriteString(dimStyle.Render(libraryKindNames[m.searchKind]) + faintStyle.Render(" · l "+next))
+		if m.searchTerm != "" {
+			b.WriteString(dimStyle.Render(" · / ") + textStyle.Render(m.searchTerm))
+		}
 	case m.tab == Library && m.libraryTerm != "":
 		b.WriteString(dimStyle.Render("search ") + textStyle.Render(m.libraryTerm) + faintStyle.Render("  esc clear"))
-	case m.tab == Library && m.libraryAlbums:
-		b.WriteString(dimStyle.Render("Albums") + faintStyle.Render(" · l songs · o ") + dimStyle.Render(orderLabel[m.order[Library]]))
 	case m.tab == Library:
-		b.WriteString(dimStyle.Render("Songs") + faintStyle.Render(" · l albums · o ") + dimStyle.Render(orderLabel[m.order[Library]]))
+		next := strings.ToLower(libraryKindNames[(m.libraryKind+1)%3])
+		b.WriteString(dimStyle.Render(libraryKindNames[m.libraryKind]) +
+			faintStyle.Render(" · l "+next+" · o ") + dimStyle.Render(orderLabel[m.order[Library]]))
 	case m.tab == Playlists:
 		b.WriteString(faintStyle.Render("o ") + dimStyle.Render(orderLabel[m.order[Playlists]]))
 	}
 	return b.String()
+}
+
+// typeGlyph maps a catalog result type to a compact marker so Search rows
+// distinguish albums, artists and playlists at a glance. Songs carry no marker
+// (they are the default). Colour reinforces the letter/shape and stays on the
+// terminal palette, so it follows theme changes.
+func typeGlyph(t string) (string, lipgloss.Style) {
+	switch {
+	case strings.Contains(t, "artist"):
+		return "*", artistStyle
+	case strings.Contains(t, "album"):
+		return "A", albumStyle
+	case strings.Contains(t, "playlist"):
+		return "P", playlistStyle
+	}
+	return "", songStyle
 }
 
 // currentQueueID is the queue entry playing now. Cider's queue carries no
@@ -347,6 +699,69 @@ func (m Model) currentQueueID() string {
 	return m.now.ID
 }
 
+// rowSubtitle returns the metadata that goes in the right-hand column
+// of a bottom-panel row: "Artist" alone, or "Artist · Album" when the
+// album context isn't already supplied by the panel.
+//
+// Rules:
+//   - Always show the artist. If subtitle is empty, the field is left
+//     blank — we never invent artists from unrelated fields.
+//   - Show the album when the row IS a song (queue, search songs, library
+//     songs, playlist tracks, artist top-songs). The row's Album field is
+//     the source.
+//   - Suppress the album when the row IS the container being browsed
+//     (Library albums/artists/playlists, Playlists tab, album tracks
+//     drilled into from an album). The detail header or the row's Title
+//     already names the container, so repeating the album is noise.
+func rowSubtitle(item Item, m Model) string {
+	artist := strings.TrimSpace(displayText(item.Subtitle))
+	album := ""
+	if shouldShowAlbum(item, m) {
+		album = strings.TrimSpace(displayText(item.Album))
+	}
+	switch {
+	case artist != "" && album != "":
+		return artist + " · " + album
+	case artist != "":
+		return artist
+	case album != "":
+		return album
+	}
+	return ""
+}
+
+// shouldShowAlbum reports whether the bottom-panel row should display
+// the album field next to the artist. Suppressed when the row itself is
+// the album/artist/playlist being browsed, or when the detail header
+// already names the album (album-tracks drill-down).
+func shouldShowAlbum(item Item, m Model) bool {
+	if item.Album == "" {
+		return false
+	}
+	// Album tracks inside an album detail view: the detail header
+	// already names the album, so repeating it adds nothing.
+	if m.detail && (m.detailKind == Library || m.detailKind == Playlists) {
+		// Drill-down from Library/Playlists always names the parent.
+		// Library → album tracks, Playlists → playlist tracks. Both
+		// show the parent name in the tab border; album is noise on
+		// album tracks but the playlist's name is not the album of its
+		// tracks, so the album is still useful there.
+		if m.detailKind == Library {
+			return false
+		}
+	}
+	t := item.Type
+	switch t {
+	case "albums", "library-albums":
+		return false
+	case "artists", "library-artists":
+		return false
+	case "playlists", "library-playlists":
+		return false
+	}
+	return true
+}
+
 func (m Model) listLines(w, n int) []string {
 	if n <= 0 {
 		return nil
@@ -356,7 +771,7 @@ func (m Model) listLines(w, n int) []string {
 	loading := l.loading || (m.tab == Queue && !m.detail && m.queueLoading)
 	var details []string
 	if m.expanded && l.cursor < len(visible) {
-		details = m.itemDetailsLines(visible[l.cursor], w, max(0, n-1))
+		details = m.itemDetailsLines(visible[l.cursor], w, max(0, n-1-btoi(loading)))
 	}
 	shown := n - len(details)
 	if loading {
@@ -380,7 +795,24 @@ func (m Model) listLines(w, n int) []string {
 			}
 			title = selectedStyle
 		}
-		rows = append(rows, " "+mark+title.Render(pad(displayText(v.Title), titleW))+"  "+sub.Render(ansi.Truncate(displayText(v.Subtitle), artistW, "…")))
+		tag := ""
+		if m.tab == Search {
+			if g, st := typeGlyph(v.Type); g != "" {
+				tag = st.Render(g) + " "
+			}
+		}
+		tw := titleW
+		if tag != "" {
+			tw -= 2 // the glyph plus its trailing space
+		}
+		// Compact metadata: subtitle becomes "Artist" or "Artist · Album"
+		// depending on row type and panel context. Album is suppressed
+		// when the row IS the album/artist/playlist being browsed (the
+		// detail header already names it) and shown when the row is a
+		// song inside a parent container (queue, search, library songs,
+		// playlist tracks, artist top-songs).
+		subText := rowSubtitle(v, m)
+		rows = append(rows, " "+mark+tag+title.Render(pad(displayText(v.Title), tw))+"  "+sub.Render(ansi.Truncate(subText, artistW, "…")))
 		if i == l.cursor {
 			rows = append(rows, details...)
 		}
@@ -414,48 +846,94 @@ func (m Model) footerLines(w int) []string {
 	var hints [][2]string
 	switch {
 	case m.settings:
-		hints = [][2]string{{"↑↓", "select"}, {"↵", "apply / toggle"}, {"esc", "back"}}
+		hints = [][2]string{{"↑↓", "select"}, {"↵", "apply / toggle"}, {"esc", "back"}, {"q", "quit"}}
 	case m.input && m.scope() == filterScope:
 		hints = [][2]string{{"↵", "done"}, {"esc", "clear"}}
 	case m.input:
+		// While typing into the search/filter field, ? and q are typed
+		// into the query, not bound to "keys" or "quit". Don't advertise
+		// them; the only global escape is esc.
 		hints = [][2]string{{"↵", "search"}, {"esc", "cancel"}}
 	case m.help:
-		hints = [][2]string{{"?", "close"}}
-	case m.lyricsExpanded:
-		hints = [][2]string{{"y/esc", "restore menu"}, {"␣", "play/pause"}, {"n/p", "skip"}, {"?", "keys"}, {"q", "quit"}}
+		hints = [][2]string{{"?", "close"}, {"q", "quit"}}
 	default:
 		hints = [][2]string{{"/", "search"}}
-		if m.tab == Queue && !m.detail {
+		queueFiltered := m.tab == Queue && !m.detail && m.active().filter != ""
+		switch {
+		case queueFiltered:
+			// Cider's queue endpoints index by absolute position, which a
+			// filtered view doesn't preserve; jump/remove/clear all become
+			// no-ops while the filter is on. Surface the restriction so the
+			// user knows esc is the way out, and drop the now-dead hints.
+			hints = append(hints, [2]string{"esc", "clear filter"})
+		case m.tab == Queue && !m.detail:
 			hints = append(hints, [2]string{"↵", "jump"}, [2]string{"x", "remove"}, [2]string{"c", "clear"})
-		} else {
+		default:
 			hints = append(hints, [2]string{"↵", "play / open"}, [2]string{"a", "enqueue"})
 		}
 		hints = append(hints, [2]string{"d", "details"}, [2]string{"␣", "play/pause"}, [2]string{"n/p", "skip"})
 		if m.detail {
+			if m.artistType != "" && m.artistType != "library-artists" {
+				hints = append(hints, [2]string{"l", "albums / top songs"})
+			}
 			hints = append(hints, [2]string{"esc", "back"})
 		}
 		hints = append(hints, [2]string{"?", "keys"}, [2]string{"q", "quit"})
 	}
-	var lines []string
-	line := ""
+	// A single line, dropping the least essential hints as width shrinks.
+	// The default mode appends ? and q last; help/settings/input already
+	// included them above. Avoid duplicating them at the front.
+	essential := [][2]string{}
 	for _, h := range hints {
-		item := "  " + keyStyle.Render(h[0]) + dimStyle.Render(" "+h[1])
-		if line != "" && ansi.StringWidth(line+item) > w {
-			lines = append(lines, line)
-			line = ""
+		if h[0] == "?" || h[0] == "q" {
+			essential = append(essential, h)
 		}
-		line += item
 	}
-	return append(lines, line)
+	alreadyEssential := map[string]bool{}
+	for _, h := range essential {
+		alreadyEssential[h[0]] = true
+	}
+	var rest [][2]string
+	for _, h := range hints {
+		if !alreadyEssential[h[0]] {
+			rest = append(rest, h)
+		}
+	}
+	var b strings.Builder
+	write := func(h [2]string) bool {
+		item := keyStyle.Render(h[0]) + dimStyle.Render(" "+h[1])
+		sep := "  "
+		if b.Len() == 0 {
+			sep = " "
+		}
+		if b.Len() > 0 && ansi.StringWidth(b.String()+sep+item) > w {
+			return false
+		}
+		b.WriteString(sep)
+		b.WriteString(item)
+		return true
+	}
+	for _, h := range essential {
+		write(h)
+	}
+	for _, h := range rest {
+		if !write(h) {
+			break
+		}
+	}
+	if b.Len() == 0 {
+		return []string{}
+	}
+	return []string{ansi.Truncate(b.String(), w, "…")}
 }
 
 var helpKeys = [][2]string{
 	{"␣", "play / pause"}, {"n  p", "next / previous"}, {"←  →", "seek 5 s"}, {"+  -", "volume"},
 	{"s", "toggle shuffle"}, {"r", "cycle repeat"}, {"P", "play all"}, {"↵", "play / open / jump"},
-	{"a", "enqueue (outside Queue)"}, {"x", "remove (Queue tab)"}, {"c", "clear (Queue tab)"}, {"/", "search / filter"}, {"o", "sort"},
+	{"a", "enqueue (outside Queue)"}, {"x", "remove (Queue tab)"}, {"c", "clear (Queue tab)"}, {"Y", "copy item to clipboard"}, {"/", "search / filter"}, {"o", "sort"},
 	{"d", "expand item details"},
-	{"l", "songs / albums"}, {"⇥  ⇧⇥", "next / prev tab"}, {"1-4", "go to tab"}, {"j  k", "move"}, {"esc", "back / clear"},
-	{"y", "expand / restore lyrics"}, {",", "settings"}, {"v", "full-screen visualizer"}, {"b", "spectrum / waveform"}, {"q", "quit"},
+	{"l", "songs / albums / artists"}, {"⇥  ⇧⇥", "next / prev tab"}, {"1-4", "go to tab"}, {"j  k", "move"}, {"esc", "back / clear"},
+	{"y", "hide / restore lyrics"}, {",", "settings"}, {"v", "full-screen visualizer"}, {"b", "spectrum / waveform"}, {"q", "quit"},
 }
 
 // helpLines lays the key list out in two columns when there is room.

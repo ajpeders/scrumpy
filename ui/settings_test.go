@@ -86,7 +86,7 @@ func TestThemePersistence(t *testing.T) {
 			t.Fatalf("load = %q, %v; want %q", got, err, name)
 		}
 		data, err := os.ReadFile(path)
-		if err != nil || string(data) != "{\"theme\":\""+name+"\",\"background\":true}\n" {
+		if err != nil || string(data) != "{\"theme\":\""+name+"\",\"background\":true,\"lyrics\":true}\n" {
 			t.Fatalf("saved JSON = %q, %v", data, err)
 		}
 		info, err := os.Stat(path)
@@ -155,5 +155,24 @@ func TestVisualizerSettingsPersistenceAndLegacyDefault(t *testing.T) {
 	}
 	if _, err := loadAppearance(path); err == nil {
 		t.Fatal("loaded invalid visualizer")
+	}
+}
+
+func TestArtworkSettingPersistenceAndLegacyDefault(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(`{"theme":"Dark","background":true}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	config, err := loadAppearance(path)
+	if err != nil || config.Artwork {
+		t.Fatalf("legacy artwork = %v, %v", config.Artwork, err)
+	}
+	config.Artwork = true
+	if err := saveAppearance(path, config); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadAppearance(path)
+	if err != nil || !got.Artwork {
+		t.Fatalf("loaded = %+v, %v; want artwork on", got, err)
 	}
 }

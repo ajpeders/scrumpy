@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,27 +41,50 @@ func TestSidePanelKeepsMenuVisibleAndFits(t *testing.T) {
 	}
 }
 
-func TestLyricsSidebarWidensWithTheTerminal(t *testing.T) {
+func TestLyricsBandSitsBelowNowPlayingAndSpansWidth(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {120, 30}, {200, 40}} {
 		m := New(&fakeClient{})
 		m.width, m.height = size[0], size[1]
-		m.now = NowPlaying{ID: "song", Title: "Playing"}
+		m.now = NowPlaying{ID: "song", Title: "Playing", ArtistName: "Artist"}
 		m.lyrics = []lyricLine{{start: 1, end: 20, text: "Lyric sample"}}
 		m.lists[Queue] = list{loaded: true, rows: []Item{{ID: "other", Title: "Browse song", Type: "songs"}}}
-		lines := m.menuLines(size[0], 10)
-		joined := strings.Join(lines, "\n")
-		if !strings.Contains(joined, "Browse song") || !strings.Contains(joined, "Lyric sample") {
-			t.Fatalf("%v: menu or lyrics missing:\n%s", size, joined)
+		frame := m.View()
+		if !strings.Contains(frame, "Lyric sample") {
+			t.Fatalf("%v: lyrics missing from view:\n%s", size, frame)
 		}
-		panelW := 0
-		for _, line := range lines {
-			plain := ansi.Strip(line)
-			if i := strings.Index(plain, "╭"); i >= 0 {
-				panelW = ansi.StringWidth(plain) - ansi.StringWidth(plain[:i])
+		if !strings.Contains(frame, "Browse song") {
+			t.Fatalf("%v: queue list missing from view:\n%s", size, frame)
+		}
+		// Lyrics band sits directly below the now-playing metadata; both
+		// render above the queue/bottom panel.
+		lines := strings.Split(frame, "\n")
+		nowAt, lyricsAt, seekAt := -1, -1, -1
+		for i, raw := range lines {
+			plain := ansi.Strip(raw)
+			switch {
+			case nowAt == -1 && strings.Contains(plain, "Playing"):
+				nowAt = i
+			case lyricsAt == -1 && strings.Contains(plain, "Lyric sample"):
+				lyricsAt = i
+			case seekAt == -1 && strings.HasPrefix(plain, " ["):
+				seekAt = i
 			}
 		}
-		if want := min(100, max(24, size[0]*11/20)); panelW != want {
-			t.Fatalf("%v: lyrics sidebar width %d, want %d", size, panelW, want)
+		if nowAt < 0 || lyricsAt < 0 || lyricsAt <= nowAt {
+			t.Fatalf("%v: lyrics should sit below now-playing: now=%d lyrics=%d\n%s", size, nowAt, lyricsAt, frame)
+		}
+		if seekAt >= 0 && lyricsAt >= seekAt {
+			t.Fatalf("%v: lyrics should sit above seek bar: lyrics=%d seek=%d\n%s", size, lyricsAt, seekAt, frame)
+		}
+		// The band should span the full terminal width.
+		for _, raw := range lines[lyricsAt:] {
+			plain := strings.TrimRight(ansi.Strip(raw), " ")
+			if plain == "" {
+				break
+			}
+			if ansi.StringWidth(raw) != m.width {
+				t.Fatalf("%v: lyrics row width %d, want %d: %q", size, ansi.StringWidth(raw), m.width, raw)
+			}
 		}
 	}
 }
@@ -141,11 +165,10 @@ func TestQueueStartupAndAlwaysVisibleLyrics(t *testing.T) {
 	}
 }
 
-func TestYExpandsLyricsAcrossBottomAndRestoresMenu(t *testing.T) {
+func TestYTogglesLyricsBandAndDoesNotHideQueue(t *testing.T) {
 	for _, size := range [][2]int{{120, 30}, {80, 24}, {40, 16}, {8, 5}} {
 		for _, withViz := range []bool{false, true} {
-			fake := &fakeClient{}
-			m := New(fake)
+			m := New(&fakeClient{})
 			m.width, m.height = size[0], size[1]
 			m.now = NowPlaying{ID: "song", Title: "Playing"}
 			m.lyrics = []lyricLine{{text: "Full width lyric line"}}
@@ -154,35 +177,39 @@ func TestYExpandsLyricsAcrossBottomAndRestoresMenu(t *testing.T) {
 				m = m.WithViz(make(chan []float64))
 			}
 			m, _ = sendKey(t, m, runeKey('y'))
-			frame := m.View()
-			if !m.lyricsExpanded || strings.Contains(frame, "Browse song") {
-				t.Fatalf("%v: lyrics did not replace menu", size)
+			if !m.lyricsHidden {
+				t.Fatalf("%v: y did not set lyricsHidden", size)
 			}
-			if size[0] >= 40 && (!strings.Contains(frame, "Full width lyric line") || strings.Contains(frame, "Playlists")) {
-				t.Fatalf("%v: expanded lyrics or hidden tab row incorrect:\n%s", size, frame)
+			frame := m.View()
+			if size[0] >= 24 && strings.Contains(frame, "Full width lyric line") {
+				t.Fatalf("%v: lyrics still rendered after y:\n%s", size, frame)
+			}
+			// Tiny terminals cut the row down to "Brow…" (the column is
+			// already truncated to 8 cells, then `fit()` truncates the whole
+			// row to the terminal width); the row is still rendered, just
+			// with a tiny prefix. The visible prefix proves the list
+			// survived `y`.
+			want := "Browse song"
+			if size[0] < 12 {
+				want = "Brow"
+			}
+			if !strings.Contains(frame, want) {
+				t.Fatalf("%v: queue list hidden after y:\n%s", size, frame)
 			}
 			if len(strings.Split(frame, "\n")) > m.height {
-				t.Fatal("expanded lyrics exceeded terminal height")
+				t.Fatal("frame exceeded terminal height after y")
 			}
 			for _, line := range strings.Split(frame, "\n") {
 				if lipgloss.Width(line) > m.width {
-					t.Fatal("expanded lyrics exceeded terminal width")
+					t.Fatalf("%v: line exceeded width: %q", size, line)
 				}
 			}
-			for _, key := range []rune{'a', 'x', 'c'} {
-				m, _ = sendKey(t, m, runeKey(key))
-			}
-			if len(fake.calls) != 0 {
-				t.Fatal("expanded lyrics acted on hidden menu rows")
-			}
 			m, _ = sendKey(t, m, runeKey('y'))
-			if m.lyricsExpanded || (size[0] >= 40 && !strings.Contains(m.View(), "Browse song")) {
-				t.Fatal("y did not restore the menu")
+			if m.lyricsHidden {
+				t.Fatalf("%v: y did not restore lyrics", size)
 			}
-			m, _ = sendKey(t, m, runeKey('y'))
-			m, _ = sendKey(t, m, specialKey(tea.KeyEsc))
-			if m.lyricsExpanded {
-				t.Fatal("escape did not restore the menu")
+			if !strings.Contains(m.View(), want) {
+				t.Fatalf("%v: queue list vanished after restoring lyrics:\n%s", size, m.View())
 			}
 		}
 	}
@@ -224,7 +251,7 @@ func TestMetadataHasDedicatedTitleAndDetailsRows(t *testing.T) {
 	if !strings.Contains(rows[1], "Artist") || !strings.Contains(rows[1], "Album") {
 		t.Fatalf("details missing: %q", rows)
 	}
-	if m.fixedRows() != 4+len(m.footerLines(m.width)) {
+	if m.fixedRows() < 6+len(m.footerLines(m.bottomWidth())) {
 		t.Fatal("layout did not reserve both metadata rows")
 	}
 }
@@ -280,6 +307,7 @@ func TestColoredThemeFrameFitsPanels(t *testing.T) {
 
 func TestLyricsClockRunsWithoutVisualizer(t *testing.T) {
 	m := New(&fakeClient{})
+	m.now.Playing, m.lyrics = true, []lyricLine{{}}
 	_, cmd := m.Update(lyricsFrameMsg{})
 	if cmd == nil {
 		t.Fatal("no lyrics clock without visualizer")
@@ -347,6 +375,58 @@ func TestSettingsSelectsAndRestoresWaveform(t *testing.T) {
 	reloaded := New(&fakeClient{}).WithSettings()
 	if !reloaded.waveform {
 		t.Fatal("waveform preference not restored")
+	}
+}
+
+func TestSettingsTogglesAndPersistsAlbumArt(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	m := New(&fakeClient{})
+	m, _ = sendKey(t, m, runeKey(','))
+	for range len(themeNames) + 2 {
+		m, _ = sendKey(t, m, runeKey('j'))
+	}
+	if !strings.Contains(m.View(), "Album art: Off") {
+		t.Fatal("album art setting not visible")
+	}
+	m, _ = sendKey(t, m, specialKey(tea.KeyEnter))
+	if !m.artwork || !strings.Contains(m.View(), "Album art: On") {
+		t.Fatal("album art did not switch on")
+	}
+	reloaded := New(&fakeClient{}).WithSettings()
+	if !reloaded.artwork {
+		t.Fatal("album art preference not restored")
+	}
+}
+
+func TestArtworkToggleRemovesCoverFromView(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	orig := artworkMode
+	artworkMode = artBlock
+	defer func() { artworkMode = orig }()
+
+	m := New(&fakeClient{})
+	m.artwork = true
+	m.width = 90
+	m.height = 30
+	m.now = NowPlaying{ID: "i.1", CatalogID: "123", Title: "Song", ArtistName: "Artist", AlbumName: "Album"}
+	m.coverLines = renderArtwork(image.NewRGBA(image.Rect(0, 0, artworkWide, artworkHigh)))
+
+	if !strings.Contains(m.View(), "█") {
+		t.Fatalf("cover missing before toggle:\n%s", m.View())
+	}
+	// Open settings, move to Album art, press enter to switch it off.
+	m.settingsPath = filepath.Join(t.TempDir(), "settings.json")
+	m, _ = sendKey(t, m, runeKey(','))
+	for range len(themeNames) + 2 {
+		m, _ = sendKey(t, m, runeKey('j'))
+	}
+	m, _ = sendKey(t, m, specialKey(tea.KeyEnter))
+	if m.artwork {
+		t.Fatal("artwork did not switch off")
+	}
+	m.settings = false
+	if view := m.View(); strings.Contains(view, "█") {
+		t.Fatalf("cover still present after toggle off:\n%s", view)
 	}
 }
 

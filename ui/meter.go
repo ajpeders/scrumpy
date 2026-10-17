@@ -19,6 +19,16 @@ type meter struct {
 	levels, peaks, hold []float64
 }
 
+// atRest reports that every bar and peak has settled to the floor.
+func (m *meter) atRest() bool {
+	for i := range m.levels {
+		if m.levels[i] > 0.002 || m.peaks[i] > 0.002 {
+			return false
+		}
+	}
+	return true
+}
+
 func easeToward(cur, target, rise, fall, dt float64) float64 {
 	rate := fall
 	if target > cur {

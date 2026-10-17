@@ -3,6 +3,7 @@
 package ui
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
@@ -36,6 +37,9 @@ var tabNames = [...]string{"Search", "Library", "Playlists", "Queue"}
 
 type Item struct {
 	ID, Type, Title, Subtitle, Album string
+	Genre, ReleaseDate               string
+	Duration                         float64
+	TrackNumber, DiscNumber          int
 }
 
 type page struct {
@@ -45,9 +49,36 @@ type page struct {
 
 type appleItem struct {
 	ID, Type   string
-	Attributes struct {
-		Name, ArtistName, AlbumName string
-	} `json:"attributes"`
+	Attributes itemAttributes `json:"attributes"`
+}
+
+type itemAttributes struct {
+	Name, ArtistName, AlbumName string
+	GenreNames                  []string `json:"genreNames"`
+	DurationInMillis            int64    `json:"durationInMillis"`
+	ReleaseDate                 string   `json:"releaseDate"`
+	TrackNumber, DiscNumber     int
+}
+
+func addItemDetails(item *Item, a itemAttributes) {
+	if item.Album == "" {
+		item.Album = a.AlbumName
+	}
+	if item.Genre == "" {
+		item.Genre = strings.Join(a.GenreNames, ", ")
+	}
+	if item.Duration == 0 && a.DurationInMillis > 0 {
+		item.Duration = float64(a.DurationInMillis) / 1000
+	}
+	if item.ReleaseDate == "" {
+		item.ReleaseDate = a.ReleaseDate
+	}
+	if item.TrackNumber == 0 {
+		item.TrackNumber = a.TrackNumber
+	}
+	if item.DiscNumber == 0 {
+		item.DiscNumber = a.DiscNumber
+	}
 }
 
 func items(p page) []Item {
@@ -61,7 +92,13 @@ func items(p page) []Item {
 		if subtitle == "" {
 			subtitle = v.Attributes.AlbumName
 		}
-		out = append(out, Item{ID: v.ID, Type: v.Type, Title: title, Subtitle: subtitle, Album: v.Attributes.AlbumName})
+		if subtitle == "" {
+			// An artist row has no artist/album; its genres identify it.
+			subtitle = strings.Join(v.Attributes.GenreNames, ", ")
+		}
+		item := Item{ID: v.ID, Type: v.Type, Title: title, Subtitle: subtitle}
+		addItemDetails(&item, v.Attributes)
+		out = append(out, item)
 	}
 	return out
 }
@@ -107,6 +144,17 @@ var (
 	orderLabel = [...]string{"A→Z", "Z→A", "newest", "oldest"}
 )
 
+// libraryKind identifies the resource group for Library and catalog searches.
+type libraryKind int
+
+const (
+	libSongs libraryKind = iota
+	libAlbums
+	libArtists
+)
+
+var libraryKindNames = [...]string{"Songs", "Albums", "Artists"}
+
 // scope is what / searches on the current view.
 type scope int
 
@@ -137,64 +185,84 @@ type NowPlaying struct {
 }
 
 type Model struct {
-	client         Client
-	tab            Tab
-	lists          [4]list
-	query          string
-	input          bool
-	searchTerm     string
-	libraryTerm    string
-	libraryFull    *list // the library list hidden while search results show
-	order          [4]order
-	libraryAlbums  bool
-	detail         bool
-	detailTitle    string
-	detailID       string
-	detailKind     Tab
-	detailList     list
-	now            NowPlaying
-	queueCurrent   string
-	status         string
-	offline        bool
-	viz            <-chan []float64
-	vizFrames      <-chan viz.Frame
-	vizClosed      bool // the analyzer stopped: give its rows to the list
-	fullViz        bool // v: hide the list, visualizer fills the screen
-	waveform       bool // b: switch between spectrum and waveform
-	samples        []float64
-	waveTarget     []float64 // latest audio hop; displayed at a slower waveform rate
-	lastWave       time.Time
-	help           bool // ?: the key list replaces the list
-	expanded       bool // d: details beneath the selected row
-	lyricsID       string
-	lyrics         []lyricLine
-	lyricsErr      error
-	lyricsLoading  bool
-	lyricsExpanded bool // y: lyrics fill the bottom panel instead of the menu
-	settings       bool
-	theme          string
-	backgroundOn   bool // false leaves the terminal's background untouched
-	themeCursor    int
-	settingsPath   string
-	polledAt       time.Time // when now.Position was read; for live position
-	meter          meter
-	volumeHeld     time.Time // until then, polls keep the locally set volume
-	queueLoaded    time.Time // when the Queue tab last refreshed
-	queueLoading   bool      // only one queue read may be in flight
-	queueDirty     bool      // a mutation happened during that read
-	queueRetryAt   time.Time // back off after a failed read
-	refreshLoading bool      // coalesce one-off playback refreshes
-	notice         string    // brief confirmation shown in the footer
-	noticeUntil    time.Time
-	target         []float64 // latest analyzer frame the meter eases towards
-	lastFrame      time.Time
-	width, height  int
-	lastTrack      string
-	gen            int
+	client           Client
+	tab              Tab
+	lists            [4]list
+	query            string
+	input            bool
+	searchTerm       string
+	searchKind       libraryKind
+	libraryTerm      string
+	libraryFull      *list // the library list hidden while search results show
+	order            [4]order
+	libraryKind      libraryKind
+	detail           bool
+	detailTitle      string
+	detailID         string
+	detailKind       Tab
+	detailList       list
+	artistType       string // the opened artist's type while viewing its detail
+	artistSongs      bool   // artist detail shows top songs (true) or albums (false)
+	now              NowPlaying
+	queueCurrent     string
+	status           string
+	offline          bool
+	pollFailures     int // tolerate brief API hiccups after a successful connection
+	viz              <-chan []float64
+	vizFrames        <-chan viz.Frame
+	vizClosed        bool // the analyzer stopped: give its rows to the list
+	fullViz          bool // v: hide the list, visualizer fills the screen
+	waveform         bool // b: switch between spectrum and waveform
+	samples          []float64
+	waveTarget       []float64 // latest audio hop; displayed at a slower waveform rate
+	lastWave         time.Time
+	help             bool // ?: the key list replaces the list
+	expanded         bool // d: details beneath the selected row
+	lyricsID         string
+	lyrics           []lyricLine
+	lyricsErr        error
+	lyricsLoading    bool
+	lyricsHidden     bool // y: hide lyrics for this session (band + sidebar both off)
+	lyricsOn         bool // show synced lyrics at all
+	settings         bool
+	theme            string
+	backgroundOn     bool     // false leaves the terminal's background untouched
+	artwork          bool     // show the current track's cover beside now-playing
+	coverLines       []string // pre-rendered cover rows for the active protocol
+	cover            *artwork
+	coverCols        int
+	coverRows        int
+	artworkID        string
+	artworkLoading   bool
+	artworkRetryAt   time.Time
+	detailsCover     []string // pre-rendered cover for the d-expanded item
+	detailsCoverID   string
+	detailsCoverType string
+	detailsCoverLoad bool
+	detailsKitty     *kittyCache // kitty image; a pointer so View can cache its encoding
+	themeCursor      int
+	settingsPath     string
+	polledAt         time.Time // when now.Position was read; for live position
+	meter            meter
+	volumeHeld       time.Time // until then, polls keep the locally set volume
+	queueLoaded      time.Time // when the Queue tab last refreshed
+	queueLoading     bool      // only one queue read may be in flight
+	queueDirty       bool      // a mutation happened during that read
+	queueRetryAt     time.Time // back off after a failed read
+	refreshLoading   bool      // coalesce one-off playback refreshes
+	notice           string    // brief confirmation shown in the footer
+	noticeUntil      time.Time
+	target           []float64 // latest analyzer frame the meter eases towards
+	lastFrame        time.Time
+	animating        bool // an animMsg chain is in flight; never start a second
+	lyricsTicking    bool // a lyricsFrameMsg chain is in flight
+	width, height    int
+	lastTrack        string
+	gen              int
 }
 
 func New(client Client) Model {
-	return Model{client: client, tab: Queue, width: 80, height: 24, theme: "Terminal", backgroundOn: true}
+	return Model{client: client, tab: Queue, width: 80, height: 24, theme: "Terminal", backgroundOn: true, lyricsOn: true, lyricsTicking: true}
 }
 
 // WithSettings loads the saved theme for the interactive application. Tests
@@ -205,7 +273,9 @@ func (m Model) WithSettings() Model {
 		m.settingsPath = path
 		var config appearanceSettings
 		config, err = loadAppearance(path)
-		m.theme, m.backgroundOn, m.waveform = config.Theme, config.Background, config.Visualizer == "waveform"
+		m.theme, m.backgroundOn = config.Theme, config.Background
+		m.waveform, m.artwork = config.Visualizer == "waveform", config.Artwork
+		m.lyricsOn = config.Lyrics
 	}
 	if err == nil {
 		err = applyTheme(m.theme)
@@ -214,6 +284,8 @@ func (m Model) WithSettings() Model {
 		m.theme = "Terminal"
 		m.backgroundOn = true
 		m.waveform = false
+		m.artwork = false
+		m.lyricsOn = true
 		_ = applyTheme("Terminal")
 		m.status = "Could not load theme settings"
 	}
@@ -231,12 +303,14 @@ func (m *Model) fresh() list {
 // nil or closed channel hides it and the list takes its rows.
 func (m Model) WithViz(ch <-chan []float64) Model {
 	m.viz = ch
+	m.animating = true // Init starts the redraw chain
 	return m
 }
 
 // WithFrames enables both spectrum and waveform from one analyzer stream.
 func (m Model) WithFrames(ch <-chan viz.Frame) Model {
 	m.vizFrames = ch
+	m.animating = true // Init starts the redraw chain
 	return m
 }
 
@@ -245,7 +319,7 @@ func (m Model) Init() tea.Cmd {
 	if m.viz != nil {
 		cmds = append(cmds, waitViz(m.viz), animate())
 	} else if m.vizFrames != nil {
-		cmds = append(cmds, waitFrames(m.vizFrames), animate())
+		cmds = append(cmds, animate()) // the anim tick reads the frames
 	}
 	return tea.Batch(cmds...)
 }
@@ -282,7 +356,6 @@ type actionMsg struct {
 	skipped, queued bool
 }
 type vizMsg []float64
-type frameMsg viz.Frame
 type vizClosedMsg struct{}
 type animMsg time.Time
 
@@ -298,6 +371,21 @@ func animate() tea.Cmd {
 	return tea.Tick(animInterval, func(t time.Time) tea.Msg { return animMsg(t) })
 }
 
+// wake restarts the redraw chains that rested while nothing moved. The flags
+// make it idempotent, so a chain can never be started twice.
+func (m *Model) wake() []tea.Cmd {
+	var cmds []tea.Cmd
+	if !m.animating && !m.vizClosed && (m.viz != nil || m.vizFrames != nil) && m.now.Playing {
+		m.animating = true
+		cmds = append(cmds, animate())
+	}
+	if !m.lyricsTicking && m.now.Playing && len(m.lyrics) > 0 {
+		m.lyricsTicking = true
+		cmds = append(cmds, lyricsFrame())
+	}
+	return cmds
+}
+
 func tick(d time.Duration) tea.Cmd { return tea.Tick(d, func(time.Time) tea.Msg { return tickMsg{} }) }
 
 // waitViz blocks until the analyzer publishes a frame; the UI re-issues it
@@ -309,16 +397,6 @@ func waitViz(ch <-chan []float64) tea.Cmd {
 			return vizClosedMsg{}
 		}
 		return vizMsg(bars)
-	}
-}
-
-func waitFrames(ch <-chan viz.Frame) tea.Cmd {
-	return func() tea.Msg {
-		frame, ok := <-ch
-		if !ok {
-			return vizClosedMsg{}
-		}
-		return frameMsg(frame)
 	}
 }
 
@@ -408,6 +486,12 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := message.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		if artworkMode == artKitty {
+			m.coverCols, m.coverRows = terminalArtworkSize()
+			if m.cover != nil {
+				m.coverLines = renderCoverSize(m.cover, artworkMode, m.coverCols, m.coverRows)
+			}
+		}
 	case tickMsg:
 		return m, poll(m.client)
 	case queueRefreshMsg:
@@ -430,14 +514,22 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, next // stale failures must not overwrite newer successes
 		}
 		if msg.err != nil {
-			m.offline = true
+			m.pollFailures++
 			m.status = errorStatus(msg.err)
+			// Preserve the current layout and controls for isolated failures.
+			// Startup failures still show the connection screen immediately.
+			if !m.offline && !m.polledAt.IsZero() && m.pollFailures < 3 {
+				m.status = "Connection interrupted; retrying: " + m.status
+				return m, next
+			}
+			m.offline = true
 			if msg.extra {
 				return m, nil
 			}
 			return m, tick(2 * time.Second)
 		}
 		m.offline = false
+		m.pollFailures = 0
 		if !strings.HasPrefix(m.status, "Queue refresh failed: ") {
 			m.status = ""
 		}
@@ -449,7 +541,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		if m.polledAt.IsZero() {
 			m.polledAt = time.Now()
 		}
-		cmds := []tea.Cmd{next, m.ensureLyrics()}
+		cmds := append([]tea.Cmd{next, m.ensureLyrics(), m.ensureArtwork()}, m.wake()...)
 		if msg.now.ID != m.lastTrack {
 			m.lastTrack = msg.now.ID
 			cmds = append(cmds, m.reloadQueue(false))
@@ -523,21 +615,65 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case vizMsg:
 		m.target = msg
 		if m.viz != nil {
-			return m, waitViz(m.viz)
+			cmds := append(m.wake(), waitViz(m.viz))
+			return m, tea.Batch(cmds...)
 		}
-	case frameMsg:
-		m.target, m.waveTarget = msg.Bands, msg.Samples
-		return m, waitFrames(m.vizFrames)
 	case lyricsMsg:
 		if msg.trackID == m.lyricsID {
 			m.lyrics, m.lyricsErr, m.lyricsLoading = msg.lines, msg.err, false
+			cmds := m.wake()
+			return m, tea.Batch(cmds...)
+		}
+	case artworkMsg:
+		if msg.catalogID == m.artworkID {
+			m.artworkLoading = false
+			m.coverLines = nil
+			m.cover = nil
+			m.artworkRetryAt = time.Time{}
+			if msg.err == nil && msg.cover != nil {
+				m.cover = msg.cover
+				cols, rows := m.artworkSize()
+				m.coverLines = renderCoverSize(msg.cover, artworkMode, cols, rows)
+			} else {
+				m.artworkRetryAt = time.Now().Add(30 * time.Second)
+			}
+		}
+	case copiedMsg:
+		m.status = msg.status
+	case detailsCoverMsg:
+		if msg.id == m.detailsCoverID {
+			m.detailsCoverLoad = false
+			if msg.err == nil && msg.cover != nil {
+				m.detailsCover = renderCover(msg.cover, artworkMode)
+				m.detailsKitty = &kittyCache{png: msg.cover.png} // kitty placement is sized per panel
+			}
 		}
 	case lyricsFrameMsg:
+		// Rest when there is nothing moving; wake restarts the chain.
+		if !m.now.Playing || len(m.lyrics) == 0 {
+			m.lyricsTicking = false
+			return m, nil
+		}
 		return m, lyricsFrame()
 	case vizClosedMsg:
 		m.vizClosed = true
 	case animMsg:
+		// Take the newest analyzer frame on the redraw clock. Delivering frames
+		// as messages too would double the redraws: Bubble Tea renders after
+		// every message, and both arrive about 60 times per second.
+		if m.vizFrames != nil {
+			select {
+			case frame, ok := <-m.vizFrames:
+				if ok {
+					m.target, m.waveTarget = frame.Bands, frame.Samples
+				} else {
+					m.vizClosed = true
+				}
+			default:
+			}
+		}
 		if m.vizClosed {
+			m.animating = false
 			return m, nil
 		}
 		now := time.Time(msg)
@@ -555,6 +691,10 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			target = nil // paused: settle to rest whatever the capture hears
 		}
 		m.meter.advance(target, dt)
+		if !m.now.Playing && m.meter.atRest() {
+			m.animating = false // wake restarts it when playback resumes
+			return m, nil
+		}
 		return m, animate()
 	case tea.KeyMsg:
 		return m.key(msg)
@@ -571,6 +711,10 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "r":
+			if m.refreshLoading {
+				return m, nil
+			}
+			m.refreshLoading = true
 			return m, refresh(m.client)
 		}
 		return m, nil
@@ -589,7 +733,7 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.searchTerm = m.query
 				m.lists[Search] = m.fresh()
 				m.lists[Search].loading = true
-				return m, search(m.client, m.query, m.lists[Search].gen)
+				return m, search(m.client, m.query, m.searchKind, m.lists[Search].gen)
 			case libraryScope:
 				if strings.TrimSpace(m.query) == "" {
 					m.restoreLibrary()
@@ -603,7 +747,7 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.libraryTerm = m.query
 				m.lists[Library] = m.fresh()
 				m.lists[Library].loading = true
-				return m, librarySearch(m.client, m.query, m.libraryAlbums, m.lists[Library].gen)
+				return m, librarySearch(m.client, m.query, m.libraryKind, m.lists[Library].gen)
 			}
 		case "backspace", "ctrl+h":
 			if len(m.query) > 0 {
@@ -624,23 +768,48 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if m.settings {
+	// Settings consumes navigation keys, but transport controls remain global
+	// (except while typing into a search field, handled above).
+	playbackKey := false
+	switch s {
+	case "n", "p", " ", "space", "left", "right", "+", "=", "-", "s", "r":
+		playbackKey = true
+	}
+	// Help is a modal surface. While it's open we only let the user dismiss
+	// it (?, esc), quit, or run a transport key. Block every key that would
+	// otherwise act on a hidden list (j/k, d, x, enter, a, l, P, Y, c, o,
+	// tab, 1-4, v, y, b, /) so a stray press can't quietly mutate state
+	// behind the overlay.
+	if m.help && !playbackKey {
+		switch s {
+		case "?", "esc", "backspace", "q", "ctrl+c":
+			// fall through to the switch below
+		default:
+			return m, nil
+		}
+	}
+	if m.settings && !playbackKey {
 		switch s {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "esc", ",":
 			m.settings = false
 		case "j", "down":
-			m.themeCursor = min(len(themeNames)+1, m.themeCursor+1)
+			m.themeCursor = min(len(themeNames)+3, m.themeCursor+1)
 		case "k", "up":
 			m.themeCursor = max(0, m.themeCursor-1)
 		case "enter":
-			name, background, waveform := m.theme, m.backgroundOn, m.waveform
-			if m.themeCursor == len(themeNames)+1 {
+			name, background, waveform, artwork, lyrics := m.theme, m.backgroundOn, m.waveform, m.artwork, m.lyricsOn
+			switch {
+			case m.themeCursor == len(themeNames)+3:
+				lyrics = !lyrics
+			case m.themeCursor == len(themeNames)+2:
+				artwork = !artwork
+			case m.themeCursor == len(themeNames)+1:
 				waveform = !waveform
-			} else if m.themeCursor == len(themeNames) {
+			case m.themeCursor == len(themeNames):
 				background = !background
-			} else {
+			default:
 				name = themeNames[m.themeCursor]
 			}
 			path := m.settingsPath
@@ -656,7 +825,7 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if waveform {
 				visualizer = "waveform"
 			}
-			if err := saveAppearance(path, appearanceSettings{Theme: name, Background: background, Visualizer: visualizer}); err != nil {
+			if err := saveAppearance(path, appearanceSettings{Theme: name, Background: background, Visualizer: visualizer, Artwork: artwork, Lyrics: lyrics}); err != nil {
 				m.status = "Could not save theme settings"
 				return m, nil
 			}
@@ -664,16 +833,19 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.theme, m.settingsPath, m.status = name, path, ""
 			m.backgroundOn = background
 			m.waveform = waveform
+			m.artwork = artwork
+			m.lyricsOn = lyrics
+			if !lyrics {
+				m.lyricsHidden = false
+			}
+			artCmd := m.ensureArtwork()
+			if !artwork {
+				m.clearDetailsCover()
+			}
+			lyricsCmd := m.ensureLyrics()
+			return m, tea.Batch(artCmd, lyricsCmd)
 		}
 		return m, nil
-	}
-	if m.lyricsExpanded {
-		switch s {
-		case "enter", "a", "x", "c", "j", "k", "up", "down", "o", "l", "P":
-			return m, nil // do not act on hidden menu rows
-		case "/", "tab", "shift+tab", "1", "2", "3", "4", "d", ",", "?", "v":
-			m.lyricsExpanded = false
-		}
 	}
 	switch s {
 	case "q", "ctrl+c":
@@ -706,17 +878,30 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.tab = Tab(s[0] - '1')
 		}
 		m.detail = false
+		m.artistType, m.artistSongs = "", false
 		cmd := m.ensureLoaded()
 		return m, cmd
 	case "?":
 		m.help = !m.help
 	case "y":
-		m.lyricsExpanded = !m.lyricsExpanded
+		if m.lyricsOn {
+			m.lyricsHidden = !m.lyricsHidden
+			if m.lyricsHidden {
+				m.notice, m.noticeUntil = "Lyrics hidden", time.Now().Add(2*time.Second)
+			} else {
+				m.notice, m.noticeUntil = "Lyrics on", time.Now().Add(2*time.Second)
+			}
+		}
 		m.help, m.fullViz = false, false
 	case "d":
 		if m.active().cursor < len(m.active().shown()) {
 			m.expanded = !m.expanded
 			m.help, m.fullViz = false, false
+			if !m.expanded {
+				m.clearDetailsCover()
+			} else if cmd := m.maybeDetailsCover(); cmd != nil {
+				return m, cmd
+			}
 		}
 	case ",":
 		m.settings, m.help = true, false
@@ -730,15 +915,18 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch {
 		case m.help:
 			m.help = false
-		case m.lyricsExpanded:
-			m.lyricsExpanded = false
 		case m.expanded:
 			m.expanded = false
+		case m.fullViz:
+			// Leave full-screen visualizer before doing anything else: this
+			// is the easiest way out when the only visible surface is the
+			// bars and the user wants their queue back.
+			m.fullViz = false
 		case m.active().filter != "":
 			l := m.active()
 			l.filter, l.cursor = "", 0
 		case m.detail:
-			m.detail = false
+			m.detail, m.artistType, m.artistSongs = false, "", false
 		case m.tab == Library:
 			m.restoreLibrary()
 		}
@@ -747,14 +935,21 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if l.cursor+1 < len(l.shown()) {
 			l.cursor++
 		}
+		cover := m.maybeDetailsCover()
 		if l.next != "" && !l.loading && len(l.shown())-l.cursor <= 5 {
 			l.loading = true
-			return m, load(m.client, m.tab, m.detail, l.gen, l.next)
+			return m, tea.Batch(cover, load(m.client, m.tab, m.detail, l.gen, l.next))
+		}
+		if cover != nil {
+			return m, cover
 		}
 	case "k", "up":
 		l := m.active()
 		if l.cursor > 0 {
 			l.cursor--
+		}
+		if cmd := m.maybeDetailsCover(); cmd != nil {
+			return m, cmd
 		}
 	case "enter", "a", "x":
 		l := m.active()
@@ -769,7 +964,20 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		item := rows[l.cursor]
-		if s == "enter" && !m.detail && (m.tab == Playlists || m.tab == Library && m.libraryAlbums) {
+		if isArtist(item) {
+			if s == "enter" && !m.detail {
+				// An artist has no playable ID: open its songs/albums instead.
+				// Catalog artists default to top songs; library artists to albums.
+				m.detail, m.detailKind, m.detailID, m.detailTitle = true, m.tab, item.ID, item.Title
+				m.artistType = item.Type
+				m.artistSongs = item.Type != "library-artists"
+				m.detailList = m.fresh()
+				m.detailList.loading = true
+				return m, artistContent(m.client, m.tab, item, m.artistSongs, m.detailList.gen)
+			}
+			return m, nil
+		}
+		if s == "enter" && !m.detail && (m.tab == Playlists || m.tab == Library && m.libraryKind == libAlbums) {
 			m.detail, m.detailKind, m.detailID, m.detailTitle = true, m.tab, item.ID, item.Title
 			m.detailList = m.fresh()
 			m.detailList.loading = true
@@ -793,8 +1001,25 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case "l":
+		if m.tab == Search && !m.detail {
+			m.searchKind = (m.searchKind + 1) % 3
+			m.lists[Search] = m.fresh()
+			if strings.TrimSpace(m.searchTerm) != "" {
+				m.lists[Search].loading = true
+				return m, search(m.client, m.searchTerm, m.searchKind, m.lists[Search].gen)
+			}
+			return m, nil
+		}
+		if m.detail && m.artistType != "" && m.artistType != "library-artists" {
+			// Flip a catalog artist's detail between top songs and albums.
+			m.artistSongs = !m.artistSongs
+			m.detailList = m.fresh()
+			m.detailList.loading = true
+			item := Item{ID: m.detailID, Type: m.artistType, Title: m.detailTitle}
+			return m, artistContent(m.client, m.tab, item, m.artistSongs, m.detailList.gen)
+		}
 		if m.tab == Library && !m.detail {
-			m.libraryAlbums = !m.libraryAlbums
+			m.libraryKind = (m.libraryKind + 1) % 3
 			m.libraryFull, m.libraryTerm = nil, ""
 			m.lists[Library] = m.fresh()
 			cmd := m.ensureLoaded()
@@ -806,10 +1031,20 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, skip(m.client, "next")
 	case "p":
 		return m, skip(m.client, "previous")
-	case "left":
-		return m, post(m.client, "seek", map[string]any{"position": max(0, m.now.Position-5)})
-	case "right":
-		return m, post(m.client, "seek", map[string]any{"position": m.now.Position + 5})
+	case "left", "right":
+		// Scrub from the live position and apply locally first, so rapid
+		// presses accumulate instead of all seeking to the same stale snapshot.
+		delta := -5.0
+		if s == "right" {
+			delta = 5
+		}
+		target := max(0, m.livePos()+delta)
+		if m.now.Duration > 0 {
+			target = min(target, m.now.Duration)
+		}
+		m.now.Position = target
+		m.polledAt = time.Now()
+		return m, post(m.client, "seek", map[string]any{"position": target})
 	case "+", "=", "-":
 		step := 0.05
 		if s == "-" {
@@ -830,8 +1065,12 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, skip(m.client, "toggle-shuffle")
 	case "r":
 		return m, skip(m.client, "toggle-repeat")
+	case "Y":
+		if rows := m.active().shown(); m.active().cursor < len(rows) {
+			return m, copyCmd(rows[m.active().cursor])
+		}
 	case "c":
-		if m.tab == Queue && !m.detail {
+		if m.tab == Queue && !m.detail && m.active().filter == "" {
 			return m, clearQueue(m.client)
 		}
 	}
@@ -859,8 +1098,13 @@ func (m *Model) ensureLoaded() tea.Cmd {
 	if m.tab == Playlists {
 		path = "/v1/me/library/playlists?limit=100"
 	}
-	if m.tab == Library && m.libraryAlbums {
-		path = "/v1/me/library/albums?limit=100"
+	if m.tab == Library {
+		switch m.libraryKind {
+		case libAlbums:
+			path = "/v1/me/library/albums?limit=100"
+		case libArtists:
+			path = "/v1/me/library/artists?limit=100"
+		}
 	}
 	return load(m.client, m.tab, false, l.gen, path+orderParam[m.order[m.tab]])
 }
@@ -881,8 +1125,9 @@ func (m *Model) reloadQueue(afterMutation bool) tea.Cmd {
 	return loadQueue(m.client)
 }
 
-func searchPath(storefront, term string) string {
-	return "/v1/catalog/" + url.PathEscape(storefront) + "/search?types=songs,albums,playlists&limit=25&term=" + url.QueryEscape(term)
+func searchPath(storefront, term string, kind libraryKind) string {
+	types := [...]string{"songs", "albums", "artists"}[kind]
+	return "/v1/catalog/" + url.PathEscape(storefront) + "/search?types=" + types + "&limit=25&term=" + url.QueryEscape(term)
 }
 
 func load(c Client, tab Tab, detail bool, gen int, path string) tea.Cmd {
@@ -921,6 +1166,9 @@ func play(c Client, key string, item Item) tea.Cmd {
 // ensureLyrics fetches lyrics for the playing track when they are shown and
 // not already loaded or loading for it.
 func (m *Model) ensureLyrics() tea.Cmd {
+	if !m.lyricsOn {
+		return nil
+	}
 	metadataArrived := m.lyricsErr == errNoLyrics && m.now.HasLyrics && m.now.CatalogID != ""
 	if m.now.ID == "" || (m.now.ID == m.lyricsID && !metadataArrived) {
 		return nil
@@ -936,6 +1184,89 @@ func (m *Model) ensureLyrics() tea.Cmd {
 }
 
 var errNoLyrics = errors.New("no lyrics for this song")
+
+// ensureArtwork fetches the cover for the playing track when artwork is shown.
+// It mirrors ensureLyrics: only one fetch per track, keyed by the catalog ID,
+// or the library ID for library-only tracks. It is a no-op when the setting
+// is off or the track has no ID.
+func (m *Model) ensureArtwork() tea.Cmd {
+	id := cmp.Or(m.now.CatalogID, m.now.ID)
+	if !m.artwork || id == "" {
+		m.coverLines, m.artworkID = nil, ""
+		m.cover = nil
+		m.artworkLoading = false
+		m.artworkRetryAt = time.Time{}
+		return nil
+	}
+	if id == m.artworkID && (m.artworkRetryAt.IsZero() || time.Now().Before(m.artworkRetryAt)) {
+		return nil
+	}
+	m.artworkID, m.coverLines, m.artworkLoading = id, nil, true
+	m.cover = nil
+	m.artworkRetryAt = time.Time{}
+	return fetchArtwork(m.client, id)
+}
+
+// maybeDetailsCover fetches a cover for the currently expanded item when one
+// is missing. It is called from j/k/d so selection movement pre-loads the art.
+func (m *Model) maybeDetailsCover() tea.Cmd {
+	if !m.expanded {
+		return nil
+	}
+	visible := m.active().shown()
+	if m.active().cursor >= len(visible) {
+		return nil
+	}
+	return m.ensureDetailsCover(visible[m.active().cursor])
+}
+
+// clearDetailsCover drops any in-flight or rendered cover for the d panel.
+func (m *Model) clearDetailsCover() {
+	m.detailsCover, m.detailsCoverID, m.detailsCoverType = nil, "", ""
+	m.detailsCoverLoad = false
+}
+
+// ensureDetailsCover fetches a small cover for the item the details panel is
+// about to show. It mirrors ensureArtwork but is keyed by catalogID+Type and is
+// a no-op when the artwork setting is off or the item has no art (artists).
+func (m *Model) ensureDetailsCover(item Item) tea.Cmd {
+	if !m.artwork || !m.expanded || item.ID == "" {
+		m.detailsCover, m.detailsCoverID, m.detailsCoverType = nil, "", ""
+		m.detailsCoverLoad = false
+		return nil
+	}
+	resource := artworkResource(item.Type)
+	if resource == "" {
+		m.detailsCover, m.detailsCoverID, m.detailsCoverType = nil, "", ""
+		m.detailsCoverLoad = false
+		return nil
+	}
+	key := resource + ":" + item.ID
+	if key == m.detailsCoverID {
+		return nil
+	}
+	m.detailsCover, m.detailsCoverID, m.detailsCoverType = nil, key, item.Type
+	m.detailsCoverLoad = true
+	return fetchDetailsCover(m.client, item.ID, resource)
+}
+
+// fetchDetailsCover loads the cover used in the details panel. Reuses the
+// existing artwork cache; falls through to the same artwork pipeline so a
+// repeated selection shows instantly after the first view.
+func fetchDetailsCover(c Client, catalogID, resource string) tea.Cmd {
+	return func() tea.Msg {
+		cov, err := loadArtworkFor(c, catalogID, resource)
+		return detailsCoverMsg{id: resource + ":" + catalogID, cover: cov, err: err}
+	}
+}
+
+// detailsCoverMsg carries the cover decoded for the d-expanded item. A non-nil
+// err means the cover was not available; the panel shows text only.
+type detailsCoverMsg struct {
+	id    string
+	cover *artwork
+	err   error
+}
 
 // livePos estimates the playback position now: the last polled position plus
 // the time since, so lyrics stay in step between twice-a-second polls.
@@ -956,16 +1287,47 @@ func (m Model) livePos() float64 {
 // left Cider unable to play.
 var errQueuePosition = errors.New("can't tell where the playing song is in Cider's queue (it is missing or listed twice); start a fresh queue with ↵ on a song")
 
-// playingIndex is the playing entry's position in the queue, or ok=false
-// unless its ID appears exactly once.
-func playingIndex(rows []Item, nowID string) (int, bool) {
+// playingIndex returns the position of the playing entry in the queue.
+//
+// Cider's queue endpoints do not preserve a "current" flag on each row
+// in the response — instead the row's `IsCurrent`/`Current` boolean is
+// surfaced as the `current` field on the parsed queueMsg. The handler
+// that updates the queue records that as `m.queueCurrent`.
+//
+// Resolution rules, in order:
+//  1. If `current` is set and matches exactly one row, return its index.
+//     Cider told us which row is playing; trust it even when other rows
+//     share the same ID (the user can `a`-enqueue a song that's already
+//     queued, or shuffle can yield the same ID twice in a row).
+//  2. Otherwise the queue is ambiguous and we refuse to guess: returning
+//     ok=false makes the handler surface a clear "can't tell where the
+//     playing song is" error rather than risk moving the wrong entry.
+func playingIndex(rows []Item, current, nowID string) (int, bool) {
+	if current != "" {
+		at, n := -1, 0
+		for i, r := range rows {
+			if r.ID == current {
+				at, n = i, n+1
+			}
+		}
+		if n == 1 {
+			return at, true
+		}
+		return -1, false
+	}
+	if nowID == "" {
+		return -1, false
+	}
 	at, n := -1, 0
 	for i, r := range rows {
-		if nowID != "" && r.ID == nowID {
+		if r.ID == nowID {
 			at, n = i, n+1
 		}
 	}
-	return at, n == 1
+	if n == 1 {
+		return at, true
+	}
+	return -1, false
 }
 
 // queueKey acts on the Queue tab row under the cursor: ↵ jumps to it and x
@@ -980,7 +1342,7 @@ func (m Model) queueKey(key string, _ []Item) tea.Cmd {
 	if l.filter != "" || l.cursor >= len(rows) {
 		return nil // indexes would not match Cider's queue
 	}
-	cur, ok := playingIndex(rows, m.now.ID)
+	cur, ok := playingIndex(rows, m.queueCurrent, m.now.ID)
 	if !ok {
 		return func() tea.Msg { return actionMsg{err: errQueuePosition} }
 	}
@@ -1020,6 +1382,9 @@ func clearQueue(c Client) tea.Cmd {
 const queueAhead = 100
 
 func isSong(item Item) bool { return strings.Contains(item.Type, "song") }
+
+// isArtist matches both catalog ("artists") and library ("library-artists") rows.
+func isArtist(item Item) bool { return strings.Contains(item.Type, "artist") }
 
 // playFrom plays the first song of rows and queues the songs after it.
 // Cider's play-item replaces the whole queue with that one song, and with

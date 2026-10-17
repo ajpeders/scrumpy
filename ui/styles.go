@@ -21,6 +21,13 @@ var (
 	selectedStyle = lipgloss.NewStyle().Foreground(accent).Bold(true)
 	tabStyle      = lipgloss.NewStyle().Foreground(grey)
 	activeTab     = lipgloss.NewStyle().Foreground(accent).Reverse(true).Bold(true)
+
+	// Result-type colours use hue plus a distinct marker, so the tag never
+	// relies on colour alone to tell albums, artists and playlists apart.
+	songStyle     = lipgloss.NewStyle().Foreground(green)
+	albumStyle    = lipgloss.NewStyle().Foreground(yellow)
+	artistStyle   = lipgloss.NewStyle().Foreground(accent)
+	playlistStyle = lipgloss.NewStyle().Foreground(grey)
 	onStyle       = activeTab // a toggle that is on
 	keyStyle      = lipgloss.NewStyle().Foreground(accent).Bold(true)
 

@@ -33,14 +33,14 @@ func paletteFor(name string) (themePalette, error) {
 			yellow: lipgloss.ANSIColor(11), red: lipgloss.ANSIColor(9), dim: lipgloss.ANSIColor(8)}, nil
 	case "Dark":
 		return themePalette{background: lipgloss.Color("#151922"), foreground: lipgloss.Color("#E8EDF5"),
-			accent: lipgloss.Color("#8FC7FF"), green: lipgloss.Color("#83D7A5"),
-			yellow: lipgloss.Color("#F9CC79"), red: lipgloss.Color("#FF8D9A"), dim: lipgloss.Color("#A1ACBD")}, nil
+			accent: lipgloss.Color("#E8626B"), green: lipgloss.Color("#83D7A5"),
+			yellow: lipgloss.Color("#F9CC79"), red: lipgloss.Color("#FF9AA5"), dim: lipgloss.Color("#A1ACBD")}, nil
 	case "Light":
 		return themePalette{background: lipgloss.Color("#FAFAF5"), foreground: lipgloss.Color("#202B38"),
-			accent: lipgloss.Color("#245B9A"), green: lipgloss.Color("#196B42"),
-			yellow: lipgloss.Color("#805400"), red: lipgloss.Color("#B32C40"), dim: lipgloss.Color("#566473")}, nil
+			accent: lipgloss.Color("#A3243A"), green: lipgloss.Color("#196B42"),
+			yellow: lipgloss.Color("#805400"), red: lipgloss.Color("#D33D52"), dim: lipgloss.Color("#566473")}, nil
 	case "Paper":
-		return themePalette{background: lipgloss.Color("#FAFAF5"), foreground: lipgloss.Color("#000000"),
+		return themePalette{background: lipgloss.Color("#F3EEE2"), foreground: lipgloss.Color("#000000"),
 			accent: lipgloss.Color("#000000"), green: lipgloss.Color("#000000"),
 			yellow: lipgloss.Color("#000000"), red: lipgloss.Color("#000000"), dim: lipgloss.Color("#000000")}, nil
 	case "High contrast":
@@ -96,6 +96,8 @@ type appearanceSettings struct {
 	Theme      string `json:"theme"`
 	Background bool   `json:"background"`
 	Visualizer string `json:"visualizer,omitempty"`
+	Artwork    bool   `json:"artwork,omitempty"`
+	Lyrics     bool   `json:"lyrics"`
 }
 
 func loadTheme(path string) (string, error) {
@@ -104,7 +106,7 @@ func loadTheme(path string) (string, error) {
 }
 
 func loadAppearance(path string) (appearanceSettings, error) {
-	config := appearanceSettings{Theme: "Terminal", Background: true, Visualizer: "spectrum"}
+	config := appearanceSettings{Theme: "Terminal", Background: true, Visualizer: "spectrum", Lyrics: true}
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return config, nil
@@ -137,7 +139,7 @@ func loadAppearance(path string) (appearanceSettings, error) {
 // saveTheme writes a complete replacement beside the destination and renames
 // it into place, so an interrupted write cannot leave truncated settings.
 func saveTheme(path, name string) error {
-	return saveAppearance(path, appearanceSettings{Theme: name, Background: true})
+	return saveAppearance(path, appearanceSettings{Theme: name, Background: true, Lyrics: true})
 }
 
 func saveAppearance(path string, config appearanceSettings) error {

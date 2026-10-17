@@ -45,13 +45,14 @@ func parseQueue(raw json.RawMessage) ([]Item, string, error) {
 		var q struct {
 			ID, Type, Title, Name, ArtistName string
 			IsCurrent, Current                bool
-			Attributes                        struct{ Name, ArtistName, AlbumName string } `json:"attributes"`
-			Item                              *appleItem                                   `json:"item"`
+			Attributes                        itemAttributes `json:"attributes"`
+			Item                              *appleItem     `json:"item"`
 		}
 		if err := json.Unmarshal(entry, &q); err != nil {
 			return nil, "", err
 		}
 		row := Item{ID: q.ID, Type: q.Type, Title: q.Title, Subtitle: q.ArtistName, Album: q.Attributes.AlbumName}
+		addItemDetails(&row, q.Attributes)
 		if row.Title == "" {
 			row.Title = q.Name
 		}
@@ -62,6 +63,7 @@ func parseQueue(raw json.RawMessage) ([]Item, string, error) {
 			row.Subtitle = q.Attributes.ArtistName
 		}
 		if q.Item != nil {
+			addItemDetails(&row, q.Item.Attributes)
 			if row.ID == "" {
 				row.ID = q.Item.ID
 			}
@@ -117,46 +119,58 @@ type searchResults struct {
 		Songs     page `json:"songs"`
 		Albums    page `json:"albums"`
 		Playlists page `json:"playlists"`
+		Artists   page `json:"artists"`
 	} `json:"results"`
 }
 
-func search(c Client, term string, gen int) tea.Cmd {
+func search(c Client, term string, kind libraryKind, gen int) tea.Cmd {
 	return func() tea.Msg {
 		storefront, err := storefront(c)
 		if err != nil {
 			return loadedMsg{tab: Search, gen: gen, err: err}
 		}
 		var result searchResults
-		err = c.AMAPI(searchPath(storefront, term), &result)
+		err = c.AMAPI(searchPath(storefront, term, kind), &result)
 		if err != nil {
 			return loadedMsg{tab: Search, gen: gen, err: err}
 		}
-		var p page
-		for _, group := range []struct {
-			name string
-			data page
-		}{
-			{"songs", result.Results.Songs}, {"albums", result.Results.Albums}, {"playlists", result.Results.Playlists},
-		} {
-			for _, item := range group.data.Data {
-				if item.Type == "" {
-					item.Type = group.name
-				}
-				p.Data = append(p.Data, item)
+		p := [...]page{result.Results.Songs, result.Results.Albums, result.Results.Artists}[kind]
+		for i := range p.Data {
+			if p.Data[i].Type == "" {
+				p.Data[i].Type = [...]string{"songs", "albums", "artists"}[kind]
 			}
 		}
 		return loadedMsg{tab: Search, gen: gen, page: p}
 	}
 }
 
-// librarySearch uses Apple's library search for songs, or albums in album
-// mode. Its playlist search returns nothing, so playlists are filtered locally.
-func librarySearch(c Client, term string, albums bool, gen int) tea.Cmd {
-	kind := "library-songs"
-	if albums {
-		kind = "library-albums"
+// librarySearch uses Apple's library search for the Library tab's current
+// kind (songs, albums or artists). Its playlist search returns nothing, so
+// playlists are filtered locally.
+func librarySearch(c Client, term string, kind libraryKind, gen int) tea.Cmd {
+	types := [...]string{"library-songs", "library-albums", "library-artists"}[kind]
+	return load(c, Library, false, gen, "/v1/me/library/search?types="+types+"&limit=25&term="+url.QueryEscape(term))
+}
+
+// artistContent lists an artist's top songs or albums for the detail view.
+// Catalog artists have both; library artists expose only albums, so songs
+// falls back to their albums. Catalog paths need the storefront, resolved here.
+func artistContent(c Client, tab Tab, item Item, songs bool, gen int) tea.Cmd {
+	return func() tea.Msg {
+		path := "/v1/me/library/artists/" + url.PathEscape(item.ID) + "/albums?limit=100"
+		if item.Type != "library-artists" {
+			storefront, err := storefront(c)
+			if err != nil {
+				return loadedMsg{detail: true, tab: tab, gen: gen, err: err}
+			}
+			view := "albums"
+			if songs {
+				view = "view/top-songs"
+			}
+			path = "/v1/catalog/" + url.PathEscape(storefront) + "/artists/" + url.PathEscape(item.ID) + "/" + view + "?limit=100"
+		}
+		return load(c, tab, true, gen, path)()
 	}
-	return load(c, Library, false, gen, "/v1/me/library/search?types="+kind+"&limit=25&term="+url.QueryEscape(term))
 }
 
 func errorStatus(err error) string {

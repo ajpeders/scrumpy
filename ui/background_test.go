@@ -55,7 +55,7 @@ func TestBackgroundOffDoesNotPaintThemeBackground(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := New(&fakeClient{})
-	if frame := m.themedFrame("text", 10); !strings.Contains(frame, "48;2;250;250;245") {
+	if frame := m.themedFrame("text", 10); !strings.Contains(frame, "48;2;243;238;226") {
 		t.Fatalf("enabled background was not painted: %q", frame)
 	}
 	m.backgroundOn = false
