@@ -173,9 +173,10 @@ func (a *Analyzer) capture(ctx context.Context, path, target string, out chan Fr
 	defer cmd.Wait()
 	block := make([]byte, hopFrames*2*4)
 	window := make([]float64, fftSize)
+	waved := make([]float64, 0, fftSize) // rolling sample window for the waveform
 	filled := 0
-	samples := make([]float64, hopFrames)
 	var g gain
+	bands := make([]float64, a.Bands)
 	for {
 		_, err := io.ReadFull(pipe, block)
 		if err != nil {
@@ -186,12 +187,39 @@ func (a *Analyzer) capture(ctx context.Context, path, target string, out chan Fr
 		for i := 0; i < hopFrames; i++ {
 			left := math.Float32frombits(binary.LittleEndian.Uint32(block[i*8:]))
 			right := math.Float32frombits(binary.LittleEndian.Uint32(block[i*8+4:]))
-			samples[i] = float64(left+right) / 2
-			window[fftSize-hopFrames+i] = samples[i]
+			sample := float64(left+right) / 2
+			waved = append(waved, sample)
+			window[fftSize-hopFrames+i] = sample
 		}
-		filled += hopFrames
-		if filled >= fftSize {
-			publish(out, Frame{Bands: g.apply(spectrum(window, a.Bands)), Samples: append([]float64(nil), samples...)})
+		// Once the window is full, recompute the spectrum on every hop.
+		filled = min(filled+hopFrames, fftSize)
+		if filled == fftSize {
+			bands = g.apply(spectrum(window, a.Bands))
 		}
+		// Keep about a full FFT window of samples so the waveform shows enough
+		// of a cycle to be visible, and normalise it to its peak amplitude.
+		if len(waved) >= fftSize {
+			waved = waved[len(waved)-fftSize:]
+		}
+		publish(out, Frame{Bands: bands, Samples: normalise(waved)})
 	}
+}
+
+// minPeak caps normalise's gain at 10x, so near-silence (dither, fades) stays
+// small enough for the UI's waveform noise floor to hide it.
+const minPeak = 0.1
+
+// normalise scales samples so the loudest sample reaches ±1, without changing
+// shape. Quiet input is boosted at most 1/minPeak times.
+func normalise(samples []float64) []float64 {
+	var peak float64
+	for _, s := range samples {
+		peak = max(peak, math.Abs(s))
+	}
+	peak = max(peak, minPeak)
+	out := make([]float64, len(samples))
+	for i, s := range samples {
+		out[i] = s / peak
+	}
+	return out
 }
