@@ -13,10 +13,17 @@ See [ROADMAP.md](ROADMAP.md).
 
 ## Requirements
 
-- Cider (tested with 3.1.8), signed in to Apple Music
-- An API token created in Cider: Settings → Connectivity → Manage External Application Access
-- Go 1.27+ to build
-- PipeWire `pw-record` for the visualizer (optional)
+To run:
+
+- [Cider](https://cider.sh) (tested with 3.1.8), signed in to Apple Music.
+  A paid Apple Music subscription is required; sidecue can't play anything on
+  its own. On Arch: `yay -S cider` (AUR), or use Cider's AppImage/Flatpak.
+- An API token created in Cider: Settings → Connectivity → Manage External
+  Application Access (see [HOWTO.md](HOWTO.md)).
+- PipeWire with `pw-record` on `PATH` for the visualizer (optional; the rest of
+  the app works without it).
+
+To build from source: Go 1.27 or newer. The release binaries need nothing extra.
 
 Linux is the supported platform. It also builds for macOS and Windows and the
 player should work there, but that is untested, and the visualizer needs
@@ -166,8 +173,11 @@ library).
 
 ## Docs
 
-[ARCHITECTURE.md](ARCHITECTURE.md) · [ROADMAP.md](ROADMAP.md) · [HOWTO.md](HOWTO.md)
-· [Demo and recording checklist](demo/README.md)
+[ARCHITECTURE.md](ARCHITECTURE.md) — how the pieces fit together ·
+[ROADMAP.md](ROADMAP.md) — what's built and what's next ·
+[HOWTO.md](HOWTO.md) — tokens, the Cider API, tests, troubleshooting ·
+[CONTRIBUTING.md](CONTRIBUTING.md) — how to pick up a card and send a change ·
+[Demo and recording checklist](demo/README.md)
 
 ### Before publishing or reporting a bug
 
@@ -185,4 +195,7 @@ tmux/Screen is involved), reproduction steps, and sanitized `--check` output.
 Remove tokens, private library/playlist names and local paths from logs and
 recordings. Never attach Cider's config or your API token.
 
-MIT licensed (see [LICENSE](LICENSE)). Visualizer approach adapted from [cliamp](https://github.com/bjarneo/cliamp) (MIT).
+## License
+
+MIT — see [LICENSE](LICENSE). Visualizer approach adapted from
+[cliamp](https://github.com/bjarneo/cliamp) (MIT).
