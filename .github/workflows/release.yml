@@ -32,9 +32,9 @@ jobs:
           for arch in amd64 arm64; do
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build \
               -ldflags "-X main.version=${GITHUB_REF_NAME}" \
-              -o "sidecue-linux-${arch}" .
+              -o "scrumpy-linux-${arch}" .
           done
-          sha256sum sidecue-linux-amd64 sidecue-linux-arm64 > SHA256SUMS
+          sha256sum scrumpy-linux-amd64 scrumpy-linux-arm64 > SHA256SUMS
       - name: Publish release
         # GitHub's asset upload API (uploads.github.com, raw body) differs
         # from Forgejo's, so use gh instead of publish-release.sh. Create
@@ -48,4 +48,4 @@ jobs:
           gh release view "$tag" >/dev/null 2>&1 \
             || gh release create "$tag" --title "$tag" --verify-tag
           gh release upload "$tag" --clobber \
-            sidecue-linux-amd64 sidecue-linux-arm64 SHA256SUMS
+            scrumpy-linux-amd64 scrumpy-linux-arm64 SHA256SUMS

@@ -567,7 +567,7 @@ func artworkCacheDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "sidecue", "artwork"), nil
+	return filepath.Join(dir, "scrumpy", "artwork"), nil
 }
 
 func artworkCachePath(catalogID string) (string, error) {
@@ -595,6 +595,14 @@ func cachedArtwork(catalogID string) *artwork {
 		return nil
 	}
 	f, err := os.Open(path)
+	legacy := false
+	if os.IsNotExist(err) {
+		// Migrate on demand rather than copying an entire old cache at startup.
+		if dir, dirErr := os.UserCacheDir(); dirErr == nil {
+			f, err = os.Open(filepath.Join(dir, "sidecue", "artwork", cleanID(catalogID)+".img"))
+			legacy = err == nil
+		}
+	}
 	if err != nil {
 		return nil
 	}
@@ -606,6 +614,9 @@ func cachedArtwork(catalogID string) *artwork {
 	img, err := decodeArtwork(raw)
 	if err != nil {
 		return nil
+	}
+	if legacy {
+		_ = saveArtwork(catalogID, raw)
 	}
 	return buildArtwork(img)
 }

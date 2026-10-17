@@ -1,113 +1,28 @@
 # Demo
 
-[Watch the kitty showcase](showcase.mp4): native album art and synced lyrics,
-catalog search-to-play, playlist enqueueing, shuffle and skips, all five themes,
-and spectrum/waveform plus fullscreen. The sequence comes from `showcase.tape`.
+The existing [short demo](demo.mp4) still shows the previous name. Re-record it
+before using it to illustrate scrumpy. The README screenshots below have been
+recaptured with the new name.
 
-## Native-art showcase video (kitty)
+## README screenshots (kitty)
 
-The video is captured from a real **kitty** window using GPU Screen Recorder,
-including rendered kitty-graphics images. `kitten @` drives the TUI, but is not
-used for per-frame screenshots: that approach introduced visible lag. VHS
-cannot capture native kitty graphics. The MP4 is muted (no system or microphone audio).
-
-Requirements: kitty (recorded with 0.49.2), GPU Screen Recorder with region
-capture support, Python 3, ffmpeg, Cider and the usual sidecue/PipeWire prerequisites. Prepare a
-disposable queue: this run plays **Hard to Explain — The Strokes**, then
-**I Wonder — Kanye West**, appends playlist **102026**, toggles shuffle twice,
-and skips twice. It visibly seeks about one-third into **I Wonder** but does
-not edit your library. Start with shuffle off.
-Seek keys are paced to let Cider respond; the recorder verifies the displayed
-position and adds a few visible five-second steps if rapid seeks landed short.
-The script expects a fresh Dark/Spectrum appearance profile. Shell setup is
-performed before launch; all TUI keys, theme order and holds follow
-`showcase.tape`. Its `Screenshot` commands are deliberately skipped: README
-screenshots are managed separately and are never overwritten by this recorder.
-
-Build and launch off-camera from the repository root:
-
-```sh
-D=$(mktemp -d /tmp/opencode/kitty-demo.XXXXXX)
-mkdir -p "$D/config/sidecue" "$D/cache"
-ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" "$D/config/sh.cider.genten"
-printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":true,"lyrics":true}' > "$D/config/sidecue/settings.json"
-go build -o "$D/sidecue" .
-XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" kitty --detach --start-as normal \
-  --config NONE --class sidecue-video --title sidecue-video \
-  --listen-on "unix:$D/kitty.sock" -o allow_remote_control=socket-only \
-  -o font_size=12 -o background_opacity=1 -o window_padding_width=12 \
-  -o confirm_os_window_close=0 -e env -u TMUX -u STY "$D/sidecue"
-```
-
-Float/resize that window to **1400×850 pixels** using your window manager.
-Wayland tiling compositors may ignore kitty's requested initial size. On the
-Lua-based Hyprland used for this capture, register this rule **before launch**:
-
-```sh
-hyprctl eval 'hl.window_rule({ match = { class = "sidecue-video" }, float = true, size = "1400 850", center = true })'
-```
-
-Keep the capture window visible, unobscured and fixed in place throughout
-recording. Hide notifications and turn off inactive-window dimming for the
-capture window. Verify the sharp cover and synced lyrics are visible. On
-Hyprland, get its client region and run in the original shell:
-
-```sh
-REGION=$(hyprctl clients -j | jq -r '.[] | select(.class=="sidecue-video") | "\(.size[0])x\(.size[1])+\(.at[0])+\(.at[1])"')
-python3 demo/record-kitty.py --socket "unix:$D/kitty.sock" --region "$REGION"
-```
-
-To keep a song you have already selected in Cider for the opening instead of
-starting the tape's Hard to Explain, add `--current-song`. Playback must already
-be running; the rest of the tape, including the visible seek during I Wonder,
-is unchanged.
-
-This replaces **only `showcase.mp4`**. GPU region capture records at 60 fps
-with the mouse pointer excluded. Anything overlapping that region, including
-notifications or other windows, would be captured: keep it unobscured.
-The script exports the MP4 only after playback of the tape completes; timed
-keys do not prove successful actions. Review the full video before publishing,
-including artwork, lyrics, track changes and personal queue names. UI text and
-a timeline are saved beside the socket in `review/` for verification.
-Close the capture window normally afterward. No commit or upload is performed.
-
-Export the smaller full-length GIF after review:
-
-```sh
-ffmpeg -y -i demo/showcase.mp4 -filter_complex \
-  '[0:v]fps=8,scale=700:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse' \
-  -loop 0 demo/showcase.gif
-```
-
-### Latest kitty export review (2026-10-17)
-
-`showcase.mp4` is **106.92 seconds**, 1400×850, H.264 at **60 fps**, with no
-audio. The full stream decodes without errors; one-second samples across the
-entire cut were visually reviewed. Confirmed: native album art, Headlines as
-the opening track, catalog playback of I Wonder, visible scrubbing to
-**1:20 / 4:03**, `Queued: 102026`, both shuffle states, two skips advancing to
-I Like It Like That and Heaven Is a Bedroom, all five labeled themes, both
-visualizers and fullscreen. The full-length 700-pixel GIF was regenerated.
-The video-only recorder did not overwrite any README screenshots. This is a
-demo review, not sign-off of the full release acceptance checklist.
-
-### README screenshots (kitty)
-
-The seven README PNGs show **Hard to Explain — The Strokes** playing in the
-catalog Search view. They were captured directly from a 1400×900 kitty window
-with `kitten @ --to "unix:$D/kitty.sock" screenshot --match id:1
+The seven README PNGs show **Hard to Explain — The Strokes** playing in
+catalog Search. They were captured directly from a 1400×900 kitty window with
+`kitten @ --to "unix:$D/kitty.sock" screenshot --match id:1
 demo/screenshot-player.png` (substitute each screenshot filename while its
-theme or fullscreen view is visible). The isolated profile keeps theme settings
-out of the user's normal configuration; screenshots include kitty-native album
-art, unlike the legacy VHS captures below. Review every image before publishing.
+theme or fullscreen view is visible). Use an isolated settings profile when
+switching themes; screenshots include kitty-native album art and the **scrumpy**
+title. Review every image before publishing.
 
-### Legacy VHS captures (block-art fallback only)
+### Legacy VHS screenshots (block-art fallback)
 
 Play a song with lyrics in Cider, then run `vhs demo/screenshots.tape`. It
 only searches (never changes playback) and shows catalog results rather than
-your library. VHS has no kitty graphics, so covers render as block art.
+your library. VHS has no kitty graphics, so covers render as block art. The
+legacy PNGs go to `/tmp/opencode/scrumpy-legacy-*.png` and do not replace the
+kitty screenshots used by the README.
 
-## Re-record the legacy VHS teaser
+## Re-record the teaser
 
 1. Start Cider and enable its local API. The tape starts Hard to Explain
    itself (off camera) and seeks to about the middle, so whatever is playing
@@ -123,50 +38,25 @@ under `/tmp/opencode`, and reads the existing Cider token without displaying it.
 It changes playback but does not remove queue entries or modify the library.
 Review the recording for visible private information before publishing.
 
-`demo.mp4` remains the older block-art teaser. The generated `demo.gif` is
-ignored to avoid large Git history. Prefer `showcase.mp4` for native artwork.
+`demo.mp4` is tracked; the generated `demo.gif` is ignored to avoid large Git
+history. Prefer the MP4 for the full demo and a short GIF cutdown for embeds.
 
-## Legacy VHS feature showcase (under two minutes)
+## Short feature showcase (under two minutes)
 
-For a block-art fallback recording only, run `vhs demo/showcase.tape` from the repository root with Cider signed in
+Run `vhs demo/showcase.tape` from the repository root with Cider signed in
 and playlist **102026** available. This builds the working tree and exports
 `showcase.mp4` and `showcase.gif`, using isolated appearance settings and the
 existing token without showing it. It changes real playback and queues that
-playlist; its real track names are visible. The updated tape includes visible
-scrubbing during I Wonder.
+playlist; its real track names are visible. There is no seeking.
 
 The cut shows the playlist's enqueue confirmation, tracks and populated Queue,
 both shuffle states with a next-track skip between them, catalog search-to-play,
 all five labeled themes, and spectrum/waveform plus fullscreen. Light and Paper
 are also held in normal view; Paper has the longest hold and closes the cut.
-The tape captures `screenshot-paper.png` for the README. Settings navigation
+The tape captures a legacy Paper PNG under `/tmp/opencode`. Settings navigation
 accounts for the active theme when reopening. Verify the frames and duration
 (maximum 120 seconds); timed keystrokes alone do not prove successful actions.
 This is focused feature coverage, not completion of the release gates below.
-
-### Previous VHS export review (2026-10-17; superseded by kitty capture)
-
-`showcase.mp4` is **95.88 seconds** at 1400×850. One-second contact sheets
-and full-size README screenshots were reviewed. Confirmed: catalog playback,
-`Queued: 102026`, playlist tracks in Queue, two post-shuffle skips advancing
-to a different track (Hard to Explain → No Time (feat. Gunna)), all five
-labeled themes held in the waveform view, both visualizers and fullscreen.
-Album art is enabled in the isolated settings but VHS still uses the block
-fallback, so cover quality is not demonstrated in this recording.
-
-Remaining observations (not passed acceptance checks):
-
-- The opening 0–2 seconds show a queue timeout/retry before rows recover.
-- This VHS export did not demonstrate high-resolution covers. Use the kitty
-  capture procedure above for the README assets instead.
-- No “Nothing playing” flash was seen in the sampled frames. Its original live
-  cause remains unconfirmed; regression tests cover explicitly confirmed playback
-  with temporary empty metadata, including fresh shuffle/repeat labels.
-
-Vet, unit tests and race tests pass for the fixes. Real-terminal Background
-on/off checks remain outside this VHS review. Updated player, terminal,
-Dark, Light, Paper, High contrast and fullscreen PNGs are embedded in
-the main README.
 
 ## Full public-release showcase (5–7 minutes)
 
@@ -207,12 +97,12 @@ environment variable private instead. This still controls your real Cider.
 
 ```sh
 D=$(mktemp -d /tmp/opencode/cider-showcase.XXXXXX)
-mkdir -p "$D/config/sidecue" "$D/cache"
+mkdir -p "$D/config/scrumpy" "$D/cache"
 ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" "$D/config/sh.cider.genten"
-printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":true,"lyrics":true}' > "$D/config/sidecue/settings.json"
-go build -o "$D/sidecue" .
-XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/sidecue" --check
-XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/sidecue"
+printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":false,"lyrics":true}' > "$D/config/scrumpy/settings.json"
+go build -o "$D/scrumpy" .
+XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/scrumpy" --check
+XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/scrumpy"
 ```
 
 Keep `$D` in that shell for the restart test. Leave the temporary profile out of

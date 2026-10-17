@@ -81,3 +81,22 @@ func TestBottomBorderCarriesStatusAtNarrowWidth(t *testing.T) {
 		t.Fatalf("status should fit in the lower border: %q", last)
 	}
 }
+
+func TestBottomBorderVisibleWithVisualizerAndKittyArtwork(t *testing.T) {
+	old := artworkMode
+	artworkMode = artKitty
+	t.Cleanup(func() { artworkMode = old })
+	m := New(&fakeClient{})
+	m.width, m.height = 136, 39
+	m.artwork, m.lyricsOn = true, true
+	m.coverCols, m.coverRows = 22, 10
+	m.coverLines = make([]string, 10)
+	m.now = NowPlaying{Title: "Hard to Explain", ArtistName: "The Strokes", Playing: true, Duration: 224}
+	m.viz = make(chan []float64)
+	rows := strings.Split(ansi.Strip(m.View()), "\n")
+	if len(rows) != m.height || !strings.HasPrefix(rows[len(rows)-1], "╰─ ") ||
+		!strings.HasSuffix(rows[len(rows)-1], "─╯") ||
+		!strings.Contains(rows[len(rows)-1], "quit") {
+		t.Fatalf("bottom border clipped with visualizer and artwork: %q", rows[len(rows)-1])
+	}
+}

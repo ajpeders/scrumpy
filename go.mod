@@ -1,4 +1,4 @@
-module github.com/ajpeders/sidecue
+module github.com/ajpeders/scrumpy
 
 go 1.27.0
 

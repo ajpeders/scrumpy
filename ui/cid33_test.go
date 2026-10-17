@@ -142,7 +142,7 @@ func TestPlayingIndexRefusesDuplicateCurrentID(t *testing.T) {
 }
 
 // TestQueueMarkerHiddenForDuplicateCurrent: with the playing song queued
-// twice and no isCurrent flag from Cider, sidecue can't tell which copy is
+// twice and no isCurrent flag from Cider, scrumpy can't tell which copy is
 // playing, so it must mark neither rather than both (found live, CID-33).
 func TestQueueMarkerHiddenForDuplicateCurrent(t *testing.T) {
 	m := New(&fakeClient{})

@@ -31,7 +31,10 @@ func (m Model) fixedRows() int {
 	if m.bottomBordered() {
 		footerRows = 2 // the top border and the bottom border carrying the hints
 	}
-	return 1 + lyricsBand + lyricsBreathing + len(m.nowLines()) + btoi(m.artworkShown()) +
+	// The visualizer leaves a blank row above artwork, in addition to the
+	// breathing row between artwork and the seek bar.
+	vizArtGap := btoi(m.artworkShown() && m.vizAvailable())
+	return 1 + lyricsBand + lyricsBreathing + len(m.nowLines()) + btoi(m.artworkShown()) + vizArtGap +
 		len(m.seekLines(w)) + footerRows
 }
 
@@ -306,7 +309,7 @@ func (m Model) headerLine(w int) string {
 		accentStyle.Render(strings.Repeat("█", filled)) +
 		faintStyle.Render(strings.Repeat("░", 5-filled)) +
 		dimStyle.Render(fmt.Sprintf(" %3d%% ", vol))
-	return spread(" "+titleStyle.Render("sidecue"), right, w)
+	return spread(" "+titleStyle.Render("scrumpy"), right, w)
 }
 
 var barBlocks = []string{" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}

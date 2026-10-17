@@ -95,7 +95,7 @@ func TestVersionFlag(t *testing.T) {
 	}
 	buf := make([]byte, 256)
 	n, _ := reader.Read(buf)
-	if got := string(buf[:n]); got != "sidecue v9.9.9\n" {
+	if got := string(buf[:n]); got != "scrumpy v9.9.9\n" {
 		t.Fatalf("got %q", got)
 	}
 }
