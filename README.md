@@ -24,6 +24,14 @@ block-art fallback used by terminals without graphics support.
   <img src="demo/screenshot-fullscreen.png" alt="Fullscreen waveform with lyrics" width="49%">
 </p>
 
+## Demo
+
+[Watch the 107-second demo (MP4, muted)](demo/showcase.mp4) · [GIF version](demo/showcase.gif)
+
+Recorded in kitty with native album art, synced lyrics, playlist queueing,
+shuffle, all five themes and both visualizers, plus visible scrubbing to
+one-third of a song. Audio is intentionally omitted.
+
 Status: preparing the first public release; core playback has been live-verified
 against Cider 3.1.8, but release artifacts and the remaining manual checks are
 not yet signed off. Repositories on
