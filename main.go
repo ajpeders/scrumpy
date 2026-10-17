@@ -122,6 +122,8 @@ func printError(err error) {
 	switch {
 	case errors.Is(err, cider.ErrNotRunning):
 		fmt.Fprintln(os.Stderr, "Cider isn't running; start Cider and retry")
+	case errors.Is(err, cider.ErrNoCider):
+		fmt.Fprintln(os.Stderr, "Cider not found; install Cider (https://cider.sh), sign in to Apple Music, then create a token in Settings → Connectivity → Manage External Application Access")
 	case errors.Is(err, cider.ErrNoToken), errors.Is(err, cider.ErrBadToken):
 		fmt.Fprintln(os.Stderr, "Cider API token missing or rejected; create a token in Cider Settings → Connectivity → Manage External Application Access")
 	default:

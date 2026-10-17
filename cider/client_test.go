@@ -20,7 +20,7 @@ func TestTokenDiscovery(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("CIDER_TOKEN", "")
 	path := filepath.Join(home, ".config/sh.cider.genten/spa-config.yml")
-	if _, _, err := DiscoverToken(); !errors.Is(err, ErrNoToken) {
+	if _, _, err := DiscoverToken(); !errors.Is(err, ErrNoCider) || !errors.Is(err, ErrNoToken) {
 		t.Fatalf("missing file: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {

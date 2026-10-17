@@ -3,6 +3,7 @@ package cider
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,10 @@ import (
 )
 
 var ErrNoToken = errors.New("no Cider API token; create one in Cider Settings → Connectivity → Manage External Application Access")
+
+// ErrNoCider means Cider's config file doesn't exist, which on a fresh
+// machine usually means Cider isn't installed yet. It wraps ErrNoToken.
+var ErrNoCider = fmt.Errorf("Cider's config not found: %w", ErrNoToken)
 
 const DefaultURL = "http://localhost:10767"
 
@@ -36,6 +41,9 @@ func DiscoverToken() (token, source string, err error) {
 
 func tokenFromFile(path string) (token, source string, err error) {
 	contents, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", "", ErrNoCider
+	}
 	if err != nil {
 		return "", "", ErrNoToken
 	}
