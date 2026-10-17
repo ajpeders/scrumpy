@@ -102,6 +102,15 @@ target. macOS/Windows playback and non-PipeWire capture remain out of scope.
   API-supplied artwork URLs (`ui/artwork.go`). A compromised/custom Cider endpoint
   can currently cause requests to local/private addresses; artwork requests do
   not include the Cider token. Decide and test the supported trust boundary.
+- [ ] **CID-35 Hide album art without kitty graphics:** when the terminal
+  doesn't speak the kitty graphics protocol (including inside tmux/Screen),
+  hide the cover entirely instead of drawing the Unicode quadrant-block
+  fallback. The layout should collapse the art band cleanly, the way it does
+  for a track with no art, and the Album art setting should say it's
+  unavailable rather than toggle nothing. Acceptance: tests cover supported,
+  unsupported and tmux terminals, with no blank band; README (High-resolution
+  album art and Album art setting), HOWTO troubleshooting and ARCHITECTURE
+  describe the new behaviour, and the block-art fallback mentions are removed.
 
 Validation here was local and automated only: no live playback, recording,
 release upload, or clean-machine artifact test was performed by this review.
