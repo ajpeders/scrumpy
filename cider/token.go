@@ -14,6 +14,11 @@ var ErrNoToken = errors.New("no Cider API token; create one in Cider Settings â†
 
 const DefaultURL = "http://localhost:10767"
 
+// userConfigDir is the platform config directory resolver. The variable
+// points at os.UserConfigDir by default; tests swap it to exercise the
+// macOS / Windows code paths without leaving Linux.
+var userConfigDir = os.UserConfigDir
+
 // DiscoverToken returns the token and its source. A blank token is valid only
 // when Cider's configuration explicitly disables the token requirement.
 func DiscoverToken() (token, source string, err error) {
@@ -22,7 +27,7 @@ func DiscoverToken() (token, source string, err error) {
 	}
 	// Cider is Electron, so its config lives in the platform config directory:
 	// $XDG_CONFIG_HOME (or ~/.config), ~/Library/Application Support, %AppData%.
-	dir, err := os.UserConfigDir()
+	dir, err := userConfigDir()
 	if err != nil {
 		return "", "", ErrNoToken
 	}

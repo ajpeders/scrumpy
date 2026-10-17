@@ -72,6 +72,39 @@ func TestTokenDiscoveryHonoursXDGConfigHome(t *testing.T) {
 	}
 }
 
+// TestTokenDiscoveryHonoursPlatformConfigDir pins the macOS / Windows
+// code paths the way the XDG test pins Linux. The test runs on Linux
+// by stubbing userConfigDir to return a fake "Library/Application
+// Support" path; on macOS and Windows the same code resolves to the
+// real platform directory, so the wiring (and the "sh.cider.genten/
+// spa-config.yml" filename we look for) is locked in here.
+func TestTokenDiscoveryHonoursPlatformConfigDir(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("CIDER_TOKEN", "")
+	dir := t.TempDir()
+	old := userConfigDir
+	userConfigDir = func() (string, error) { return dir, nil }
+	defer func() { userConfigDir = old }()
+	path := filepath.Join(dir, "sh.cider.genten", "spa-config.yml")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("connectivity:\n  apiTokens:\n    - token: platform-secret\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if token, _, err := DiscoverToken(); err != nil || token != "platform-secret" {
+		t.Fatalf("platform config: %q %v", token, err)
+	}
+	// And when the resolver fails, we surface ErrNoToken rather than
+	// crashing. The macOS "no home directory" and the Windows
+	// SHGetKnownFolderPath failure both map to this path.
+	userConfigDir = func() (string, error) { return "", errors.New("no config dir") }
+	if _, _, err := DiscoverToken(); !errors.Is(err, ErrNoToken) {
+		t.Fatalf("resolver error: %v", err)
+	}
+}
+
 func TestAuthAndHTTP(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("apptoken") != "secret" {
