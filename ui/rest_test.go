@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ajpeders/cider-tui/viz"
+	"github.com/ajpeders/sidecue/viz"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

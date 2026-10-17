@@ -567,7 +567,7 @@ func artworkCacheDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "cider-tui", "artwork"), nil
+	return filepath.Join(dir, "sidecue", "artwork"), nil
 }
 
 func artworkCachePath(catalogID string) (string, error) {

@@ -1,14 +1,14 @@
-# cider-tui
+# sidecue
 
 A cliamp-style terminal player for Apple Music on Linux. [Cider](https://cider.sh)
-does the playback; cider-tui controls it over Cider's local API and adds search,
+does the playback; sidecue controls it over Cider's local API and adds search,
 library, playlists, queue and spectrum/waveform visualizers.
 
 Status: preparing the first public release; core playback has been live-verified
 against Cider 3.1.8, but release artifacts and the remaining manual checks are
 not yet signed off. Repositories on
-[Forgejo](https://git.thelunadog.com/alex/cider-tui) and
-[GitHub](https://github.com/ajpeders/cider-tui).
+[Forgejo](https://git.thelunadog.com/alex/sidecue) and
+[GitHub](https://github.com/ajpeders/sidecue).
 See [ROADMAP.md](ROADMAP.md).
 
 ## Requirements
@@ -25,27 +25,27 @@ PipeWire, so it stays blank elsewhere.
 ## Quick start
 
 1. In Cider, open Settings → Connectivity → Manage External Application
-   Access and create a token (any name, e.g. `cider-tui`). cider-tui finds
+   Access and create a token (any name, e.g. `sidecue`). sidecue finds
    it automatically; nothing to copy.
 2. Install and check the connection:
 
 ```sh
-go install github.com/ajpeders/cider-tui@latest
-cider-tui --check   # Cider status, volume, library size, visualizer
-cider-tui
+go install github.com/ajpeders/sidecue@latest
+sidecue --check   # Cider status, volume, library size, visualizer
+sidecue
 ```
 
 If `--check` fails, see [HOWTO.md](HOWTO.md#troubleshooting).
 
-Once a release is published, download `cider-tui-linux-amd64` /
-`cider-tui-linux-arm64` from its Forgejo or GitHub release page, `chmod +x`
+Once a release is published, download `sidecue-linux-amd64` /
+`sidecue-linux-arm64` from its Forgejo or GitHub release page, `chmod +x`
 it and run it. Until then, build from a clone:
-`go build -o cider-tui . && ./cider-tui`.
+`go build -o sidecue . && ./sidecue`.
 
 The token is read from Cider's own config (`sh.cider.genten/spa-config.yml` in
 your config directory) automatically. Override with `CIDER_TOKEN`, and the
-server with `CIDER_URL` (default `http://localhost:10767`). `cider-tui -h`
-lists all options; `cider-tui --version` prints the version.
+server with `CIDER_URL` (default `http://localhost:10767`). `sidecue -h`
+lists all options; `sidecue --version` prints the version.
 
 ## Keys
 
@@ -97,7 +97,7 @@ Cider detects your terminal from its `TERM` / `TERM_PROGRAM` / `KITTY_WINDOW_ID`
 environment variables. Note the limitation: the image is drawn directly into the
 scrolling area, so it requires the **alternate screen** (enabled by default) and
 a terminal that keeps graphics across partial redraws. Inside `tmux` or GNU
-Screen, cider-tui conservatively uses blocks rather than forwarding graphics.
+Screen, sidecue conservatively uses blocks rather than forwarding graphics.
 
 On any other terminal the cover falls back to **Unicode quadrant blocks** — a
 small coloured mosaic that works everywhere but is not true image resolution.
@@ -126,7 +126,7 @@ playback or making extra network requests.
 
 Open Settings with `,`, select a theme with `j`/`k` or arrows, and press `enter`
 to apply and save. Terminal, Dark, Light, Paper and High contrast presets are available;
-`esc` returns. The selection is stored in `cider-tui/settings.json` under your
+`esc` returns. The selection is stored in `sidecue/settings.json` under your
 config directory: `$XDG_CONFIG_HOME` (normally `~/.config`) on Linux,
 `~/Library/Application Support` on macOS, `%AppData%` on Windows. Delete it to
 reset to defaults.
@@ -149,7 +149,7 @@ layout to keep browsing and controls accessible. On terminals with the kitty gra
 iTerm2, Konsole) the cover renders as a true high-resolution image; elsewhere it
 falls back to coloured Unicode quadrant blocks. Artwork comes from Apple Music
 through Cider and is cached on disk under your cache directory
-(`cider-tui/artwork/`), so a track is downloaded once and the cache stays
+(`sidecue/artwork/`), so a track is downloaded once and the cache stays
 bounded.
 
 Paper is monochrome: black text, controls, borders and visualizer on a light
@@ -180,7 +180,7 @@ Keep Cider's API token authentication enabled and its API off the public
 Internet. Remote `CIDER_URL` connections over plain HTTP expose the token on
 the network; use a trusted local connection or an encrypted tunnel.
 
-For bugs, include `cider-tui --version`, Cider version, OS, terminal (and whether
+For bugs, include `sidecue --version`, Cider version, OS, terminal (and whether
 tmux/Screen is involved), reproduction steps, and sanitized `--check` output.
 Remove tokens, private library/playlist names and local paths from logs and
 recordings. Never attach Cider's config or your API token.

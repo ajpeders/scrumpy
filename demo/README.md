@@ -56,12 +56,12 @@ environment variable private instead. This still controls your real Cider.
 
 ```sh
 D=$(mktemp -d /tmp/opencode/cider-showcase.XXXXXX)
-mkdir -p "$D/config/cider-tui" "$D/cache"
+mkdir -p "$D/config/sidecue" "$D/cache"
 ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" "$D/config/sh.cider.genten"
-printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":false,"lyrics":true}' > "$D/config/cider-tui/settings.json"
-go build -o "$D/cider-tui" .
-XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/cider-tui" --check
-XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/cider-tui"
+printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":false,"lyrics":true}' > "$D/config/sidecue/settings.json"
+go build -o "$D/sidecue" .
+XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/sidecue" --check
+XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/sidecue"
 ```
 
 Keep `$D` in that shell for the restart test. Leave the temporary profile out of

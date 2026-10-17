@@ -13,7 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/ajpeders/cider-tui/viz"
+	"github.com/ajpeders/sidecue/viz"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

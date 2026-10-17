@@ -10,23 +10,23 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/ajpeders/cider-tui/cider"
-	"github.com/ajpeders/cider-tui/ui"
-	"github.com/ajpeders/cider-tui/viz"
+	"github.com/ajpeders/sidecue/cider"
+	"github.com/ajpeders/sidecue/ui"
+	"github.com/ajpeders/sidecue/viz"
 )
 
 func main() { os.Exit(run(os.Args[1:])) }
 
 func run(args []string) int {
-	flags := flag.NewFlagSet("cider-tui", flag.ContinueOnError)
+	flags := flag.NewFlagSet("sidecue", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	check := flags.Bool("check", false, "check Cider connectivity and library")
 	showVersion := flags.Bool("version", false, "print the version")
 	flags.Usage = func() {
 		fmt.Fprint(flags.Output(), `Usage:
-  cider-tui                          open the player
-  cider-tui --check                  check Cider connectivity and library
-  cider-tui --version                print the version
+  sidecue                          open the player
+  sidecue --check                  check Cider connectivity and library
+  sidecue --version                print the version
 
 Environment:
   CIDER_TOKEN    Cider API token (default: read from Cider's config)
@@ -44,7 +44,7 @@ Environment:
 		return 2
 	}
 	if *showVersion {
-		fmt.Printf("cider-tui %s\n", versionString())
+		fmt.Printf("sidecue %s\n", versionString())
 		return 0
 	}
 	if *check {
@@ -70,7 +70,7 @@ Environment:
 var version string
 
 // versionString falls back to the module version, which `go install
-// github.com/ajpeders/cider-tui@v0.1.0` records, and "(devel)" for local builds.
+// github.com/ajpeders/sidecue@v0.1.0` records, and "(devel)" for local builds.
 func versionString() string {
 	if version != "" {
 		return version

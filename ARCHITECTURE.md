@@ -1,11 +1,11 @@
 # Architecture
 
-One Go binary. Cider handles Apple Music playback and DRM; cider-tui sends
+One Go binary. Cider handles Apple Music playback and DRM; sidecue sends
 commands over HTTP and reads Cider's decoded PCM output from PipeWire for the
 visualizer. It does not download or decode Apple Music audio files itself.
 
 ```
-cider-tui (Bubble Tea)
+sidecue (Bubble Tea)
  ├─ ui/        big visualizer on top, now playing + seek bar, tabbed list below
  ├─ cider/     HTTP client: token discovery, playback GET/POST, amapi run-v3, paging
  ├─ viz/       pw-record child process → f32 PCM → FFT → 48 band levels (0–1)

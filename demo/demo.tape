@@ -15,9 +15,9 @@ Set TypingSpeed 80ms
 
 # Isolated config: demo theme, real Cider token via symlink
 Hide
-Type `D=$(mktemp -d /tmp/opencode/cider-demo.XXXXXX) && mkdir -p $D/cfg/cider-tui && ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" $D/cfg/sh.cider.genten`
+Type `D=$(mktemp -d /tmp/opencode/cider-demo.XXXXXX) && mkdir -p $D/cfg/sidecue && ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" $D/cfg/sh.cider.genten`
 Enter
-Type `echo '{"theme":"Dark","background":true,"visualizer":"spectrum"}' > $D/cfg/cider-tui/settings.json`
+Type `echo '{"theme":"Dark","background":true,"visualizer":"spectrum"}' > $D/cfg/sidecue/settings.json`
 Enter
 Type "go build -o $D/bin . && clear && XDG_CONFIG_HOME=$D/cfg $D/bin"
 Enter

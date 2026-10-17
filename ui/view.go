@@ -285,7 +285,7 @@ func (m Model) headerLine(w int) string {
 		accentStyle.Render(strings.Repeat("█", filled)) +
 		faintStyle.Render(strings.Repeat("░", 5-filled)) +
 		dimStyle.Render(fmt.Sprintf(" %3d%% ", vol))
-	return spread(" "+titleStyle.Render("cider-tui"), right, w)
+	return spread(" "+titleStyle.Render("sidecue"), right, w)
 }
 
 var barBlocks = []string{" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}

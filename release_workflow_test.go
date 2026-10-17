@@ -63,7 +63,7 @@ func (m *mockReleaseAPI) handler(t *testing.T) http.Handler {
 			m.uploadHits = append(m.uploadHits, name)
 			w.WriteHeader(http.StatusCreated)
 			fmt.Fprint(w, `{}`)
-		case r.URL.Path == "/api/v1/repos/alex/cider-tui/releases" && r.Method == http.MethodPost:
+		case r.URL.Path == "/api/v1/repos/alex/sidecue/releases" && r.Method == http.MethodPost:
 			m.createHits++
 			w.WriteHeader(http.StatusCreated)
 			fmt.Fprint(w, m.lookupBody)
@@ -138,8 +138,8 @@ func TestPublishReleaseCreatesWhenMissing(t *testing.T) {
 			defer server.Close()
 
 			dir := t.TempDir()
-			amd := filepath.Join(dir, "cider-tui-linux-amd64")
-			arm := filepath.Join(dir, "cider-tui-linux-arm64")
+			amd := filepath.Join(dir, "sidecue-linux-amd64")
+			arm := filepath.Join(dir, "sidecue-linux-arm64")
 			for _, p := range []string{amd, arm} {
 				if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
 					t.Fatal(err)
@@ -147,7 +147,7 @@ func TestPublishReleaseCreatesWhenMissing(t *testing.T) {
 			}
 
 			cmd := exec.Command("bash", script,
-				server.URL+"/api/v1/repos/alex/cider-tui/releases",
+				server.URL+"/api/v1/repos/alex/sidecue/releases",
 				"test-token",
 				"v1.0.0",
 				amd, arm,
@@ -175,7 +175,7 @@ func TestPublishReleaseCreatesWhenMissing(t *testing.T) {
 			if mock.createHits != 1 {
 				t.Fatalf("expected 1 create, got %d (output: %s)", mock.createHits, out)
 			}
-			want := []string{"cider-tui-linux-amd64", "cider-tui-linux-arm64"}
+			want := []string{"sidecue-linux-amd64", "sidecue-linux-arm64"}
 			if len(mock.uploadHits) != len(want) {
 				t.Fatalf("uploaded %v, want %v (output: %s)", mock.uploadHits, want, out)
 			}
@@ -199,14 +199,14 @@ func TestPublishReleaseReusesExisting(t *testing.T) {
 	mock := &mockReleaseAPI{
 		lookupStatus:   http.StatusOK,
 		lookupBody:     `{"id": 7, "tag_name": "v1.0.0", "assets": []}`,
-		existingAssets: []string{"cider-tui-linux-amd64"},
+		existingAssets: []string{"sidecue-linux-amd64"},
 	}
 	server := httptest.NewServer(mock.handler(t))
 	defer server.Close()
 
 	dir := t.TempDir()
-	amd := filepath.Join(dir, "cider-tui-linux-amd64")
-	arm := filepath.Join(dir, "cider-tui-linux-arm64")
+	amd := filepath.Join(dir, "sidecue-linux-amd64")
+	arm := filepath.Join(dir, "sidecue-linux-arm64")
 	sums := filepath.Join(dir, "SHA256SUMS")
 	for _, p := range []string{amd, arm, sums} {
 		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
@@ -215,7 +215,7 @@ func TestPublishReleaseReusesExisting(t *testing.T) {
 	}
 
 	cmd := exec.Command("bash", script,
-		server.URL+"/api/v1/repos/alex/cider-tui/releases",
+		server.URL+"/api/v1/repos/alex/sidecue/releases",
 		"test-token",
 		"v1.0.0",
 		amd, arm, sums,
@@ -234,7 +234,7 @@ func TestPublishReleaseReusesExisting(t *testing.T) {
 	if mock.lookupHits < 2 {
 		t.Fatalf("expected >=2 lookup hits, got %d", mock.lookupHits)
 	}
-	want := []string{"cider-tui-linux-arm64", "SHA256SUMS"}
+	want := []string{"sidecue-linux-arm64", "SHA256SUMS"}
 	if len(mock.uploadHits) != len(want) {
 		t.Fatalf("uploaded %v, want %v (output: %s)", mock.uploadHits, want, out)
 	}
@@ -257,7 +257,7 @@ func TestPublishReleasePropagatesAuthError(t *testing.T) {
 	defer server.Close()
 
 	cmd := exec.Command("bash", script,
-		server.URL+"/api/v1/repos/alex/cider-tui/releases",
+		server.URL+"/api/v1/repos/alex/sidecue/releases",
 		"test-token",
 		"v1.0.0",
 		"/tmp/nonexistent",

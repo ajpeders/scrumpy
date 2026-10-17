@@ -38,9 +38,9 @@ jobs:
           for arch in amd64 arm64; do
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build \
               -ldflags "-X main.version=${GITHUB_REF_NAME}" \
-              -o "cider-tui-linux-${arch}" .
+              -o "sidecue-linux-${arch}" .
           done
-          sha256sum cider-tui-linux-amd64 cider-tui-linux-arm64 > SHA256SUMS
+          sha256sum sidecue-linux-amd64 sidecue-linux-arm64 > SHA256SUMS
       - name: Publish release
         env:
           # Secret RELEASE_TOKEN (Forgejo access token, write:repository) is
@@ -54,4 +54,4 @@ jobs:
           # upload failure doesn't duplicate anything.
           bash .forgejo/scripts/publish-release.sh \
               "$api" "${TOKEN}" "${GITHUB_REF_NAME}" \
-              cider-tui-linux-amd64 cider-tui-linux-arm64 SHA256SUMS
+              sidecue-linux-amd64 sidecue-linux-arm64 SHA256SUMS

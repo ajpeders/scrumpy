@@ -16,7 +16,7 @@ target. macOS/Windows playback and non-PipeWire capture remain out of scope.
   order as well as stale queue rows/current-track marking (related: CID-14).
   Capture reproduction steps, shuffle/repeat state, now-playing and queue
   responses before/after a skip, including whether the skip was initiated in
-  cider-tui or Cider. Acceptance: next-track skips and natural advancement
+  sidecue or Cider. Acceptance: next-track skips and natural advancement
   update now-playing and the Queue's current-track marker consistently with
   Cider's actual queue; verify playlist playback with shuffle on/off and
   duplicate tracks. Add regression coverage for track-change queue refresh and
@@ -107,15 +107,15 @@ release upload, or clean-machine artifact test was performed by this review.
 Acceptance for any card: `go vet ./... && go test ./...` green, plus a new test
 covering the change. Push to `main` only after review (see HOWTO.md).
 
-- [x] **CID-00 Create the repos**: public `alex/cider-tui` on git.thelunadog.com
-  is `origin` (SSH, port 2222); public `ajpeders/cider-tui` on GitHub is `github`.
+- [x] **CID-00 Create the repos**: public `alex/sidecue` on git.thelunadog.com
+  is `origin` (SSH, port 2222); public `ajpeders/sidecue` on GitHub is `github`.
   Both repos and remotes are set up. The reviewed `main` was pushed to both.
   (1) Acceptance: `git ls-remote origin` and `git ls-remote github` both show
   `main` at the local HEAD.
 - [x] **CID-01 Scaffold + Cider client**: Go module, `cider` package with token
   discovery (`CIDER_TOKEN` → Cider's `spa-config.yml`), `CIDER_URL` override,
   `Get`/`Post`/`AMAPI`/paging, typed errors for not-running (connection refused)
-  and bad token (403). `cider-tui --check` prints Cider status, volume and library
+  and bad token (403). `sidecue --check` prints Cider status, volume and library
   song count. (2) Acceptance: httptest-based unit tests for token discovery, each
   error type and paging over a `next` chain; `--check` works against live Cider.
 - [~] **CID-02 CI**: `.forgejo/workflows/ci.yml` running `go vet` + `go test ./...`
@@ -197,7 +197,7 @@ covering the change. Push to `main` only after review (see HOWTO.md).
   polling where they cover it. (2) Acceptance: event names documented in the
   spec; a test feeds recorded events into the model; polling stays as the fallback
   when the socket drops.
-- [~] **CID-10 Spotify export** (one-shot subcommand, not part of the TUI): `cider-tui export-spotify` moves library songs to
+- [~] **CID-10 Spotify export** (one-shot subcommand, not part of the TUI): `sidecue export-spotify` moves library songs to
   Liked Songs and recreates playlists, matching by ISRC with a title/artist search
   fallback; writes an unmatched report; resumable. Needs a Spotify developer app.
   (3) Acceptance: tests for ISRC/fallback matching and resume; a dry run on the
@@ -225,7 +225,7 @@ covering the change. Push to `main` only after review (see HOWTO.md).
   behind the existing model tests; manual check of play/skip/queue and
   visualizer on a live Spotify session.
 - [ ] **CID-13 Local files**: play a local music folder (default `~/Music`).
-  Cider can't be relied on for this, so cider-tui drives its own player:
+  Cider can't be relied on for this, so sidecue drives its own player:
   `mpv` over its JSON IPC socket (play, queue, seek, volume), with a library
   built by scanning tags. Same player-backend interface as CID-12; the
   visualizer captures mpv's PipeWire stream. (3) Acceptance: scan test on a
@@ -240,7 +240,7 @@ covering the change. Push to `main` only after review (see HOWTO.md).
   discovery and help text; `--check` works against live Cider.
 - [~] **CID-16 Release binaries**: on a `v*` tag, build Linux amd64/arm64
   binaries with `-ldflags "-X main.version=<tag>"` and attach them to the
-  Forgejo and GitHub releases, so trying cider-tui doesn't need Go.
+  Forgejo and GitHub releases, so trying sidecue doesn't need Go.
   (2) Acceptance: tagging produces both binaries on both releases, and each
   prints the tag from `--version`.
   Implemented (release workflows on both remotes); untested until the first tag.

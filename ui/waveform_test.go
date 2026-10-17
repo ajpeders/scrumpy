@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ajpeders/cider-tui/viz"
+	"github.com/ajpeders/sidecue/viz"
 	"github.com/charmbracelet/x/ansi"
 )
 

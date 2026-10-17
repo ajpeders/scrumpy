@@ -68,13 +68,13 @@ func TestThemeSettingsPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "cider-tui", "settings.json"); path != want {
+	if want := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "sidecue", "settings.json"); path != want {
 		t.Fatalf("path = %q, want %q", path, want)
 	}
 }
 
 func TestThemePersistence(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config", "cider-tui", "settings.json")
+	path := filepath.Join(t.TempDir(), "config", "sidecue", "settings.json")
 	if got, err := loadTheme(path); err != nil || got != "Terminal" {
 		t.Fatalf("missing settings = %q, %v", got, err)
 	}

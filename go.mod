@@ -1,4 +1,4 @@
-module github.com/ajpeders/cider-tui
+module github.com/ajpeders/sidecue
 
 go 1.27.0
 

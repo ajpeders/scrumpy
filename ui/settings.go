@@ -89,7 +89,7 @@ func themeSettingsPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("config directory: %w", err)
 	}
-	return filepath.Join(dir, "cider-tui", "settings.json"), nil
+	return filepath.Join(dir, "sidecue", "settings.json"), nil
 }
 
 type appearanceSettings struct {
