@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` not started · `[~]` started · `[x]` done.
 
-Design: [docs/superpowers/specs/2026-10-15-cider-tui-design.md](docs/superpowers/specs/2026-10-15-cider-tui-design.md)
+Design: [docs/superpowers/specs/2026-10-15-sidecue-design.md](docs/superpowers/specs/2026-10-15-sidecue-design.md)
 
 ## Public release gates (reviewed 2026-10-17)
 

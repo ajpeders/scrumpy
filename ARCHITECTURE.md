@@ -26,7 +26,7 @@ sidecue (Bubble Tea)
   Music API request as the signed-in user; the response is wrapped in `{"data": ...}`.
   Lists page through `next`.
 
-Full verified details are in the [design spec](docs/superpowers/specs/2026-10-15-cider-tui-design.md).
+Full verified details are in the [design spec](docs/superpowers/specs/2026-10-15-sidecue-design.md).
 
 ## Key decisions
 
