@@ -691,12 +691,14 @@ func typeGlyph(t string) (string, lipgloss.Style) {
 }
 
 // currentQueueID is the queue entry playing now. Cider's queue carries no
-// current flag, but its entry IDs match now-playing's.
+// current flag, but its entry IDs match now-playing's. It is "" when no
+// single row can be identified (e.g. the playing song is queued twice).
 func (m Model) currentQueueID() string {
-	if m.queueCurrent != "" {
-		return m.queueCurrent
+	rows := m.lists[Queue].rows
+	if i, ok := playingIndex(rows, m.queueCurrent, m.now.ID); ok {
+		return rows[i].ID
 	}
-	return m.now.ID
+	return ""
 }
 
 // rowSubtitle returns the metadata that goes in the right-hand column

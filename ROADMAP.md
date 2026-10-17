@@ -10,7 +10,7 @@ Design: [docs/superpowers/specs/2026-10-15-cider-tui-design.md](docs/superpowers
 completed features below do not imply release sign-off. Linux is the release
 target. macOS/Windows playback and non-PipeWire capture remain out of scope.
 
-- [ ] **CID-33 Playlist next-track / Queue desynchronization (release blocker):**
+- [x] **CID-33 Playlist next-track / Queue desynchronization (release blocker):**
   user reports that skipping to the next song in a playlist is not reflected
   in the displayed Queue. Root cause not yet verified; investigate playback
   order as well as stale queue rows/current-track marking (related: CID-14).
@@ -21,6 +21,16 @@ target. macOS/Windows playback and non-PipeWire capture remain out of scope.
   Cider's actual queue; verify playlist playback with shuffle on/off and
   duplicate tracks. Add regression coverage for track-change queue refresh and
   stale responses, plus a live reproduction/fix check before closing.
+  Live check 2026-10-17 (Cider, 22-row playlist queue): 3 skips with shuffle on
+  and 3 with shuffle off issued via the API; after each, sidecue's now-playing
+  and Queue marker named the new track. Cider's queue response carried no
+  isCurrent flag, so the marker came from the now-playing ID (unique in the
+  queue each time). Natural advancement also verified (seeked to 5 s before
+  the end; marker followed "Caustic" → "Fry"). Skips made in Cider's own
+  window followed too (checked by the user). With the playing song queued
+  twice, the Queue marked both copies; fixed so an ambiguous duplicate marks
+  neither (currentQueueID now uses playingIndex), with a regression test.
+  Fix verified live: with the duplicate queued, neither copy is marked.
 
 - [~] **CID-34 Bottom-panel album metadata and compact layout:** include the
   **album name** alongside title/artist for song rows in the bottom browsing

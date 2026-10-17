@@ -140,3 +140,21 @@ func TestPlayingIndexRefusesDuplicateCurrentID(t *testing.T) {
 		t.Fatal("x on a duplicate-current Queue row issued a real remove; must refuse")
 	}
 }
+
+// TestQueueMarkerHiddenForDuplicateCurrent: with the playing song queued
+// twice and no isCurrent flag from Cider, sidecue can't tell which copy is
+// playing, so it must mark neither rather than both (found live, CID-33).
+func TestQueueMarkerHiddenForDuplicateCurrent(t *testing.T) {
+	m := New(&fakeClient{})
+	m.tab = Queue
+	m.width, m.height = 100, 30
+	m.now = NowPlaying{ID: "i.dup", Title: "Header", Playing: true}
+	m.lists[Queue].rows = []Item{{ID: "i.a", Title: "Other"}, {ID: "i.dup", Title: "DupRow"}, {ID: "i.dup", Title: "DupRow"}}
+	if n := strings.Count(ansi.Strip(m.View()), "▸ DupRow"); n != 0 {
+		t.Fatalf("marked %d duplicate rows; want 0", n)
+	}
+	m.lists[Queue].rows = m.lists[Queue].rows[:2]
+	if n := strings.Count(ansi.Strip(m.View()), "▸ DupRow"); n != 1 {
+		t.Fatalf("unique current row marked %d times; want 1", n)
+	}
+}
