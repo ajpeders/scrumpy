@@ -59,7 +59,7 @@ func TestLyricsSidebarWidensWithTheTerminal(t *testing.T) {
 				panelW = ansi.StringWidth(plain) - ansi.StringWidth(plain[:i])
 			}
 		}
-		if want := min(80, max(24, size[0]/2)); panelW != want {
+		if want := min(100, max(24, size[0]*11/20)); panelW != want {
 			t.Fatalf("%v: lyrics sidebar width %d, want %d", size, panelW, want)
 		}
 	}

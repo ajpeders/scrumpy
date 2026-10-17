@@ -35,7 +35,7 @@ const (
 var tabNames = [...]string{"Search", "Library", "Playlists", "Queue"}
 
 type Item struct {
-	ID, Type, Title, Subtitle string
+	ID, Type, Title, Subtitle, Album string
 }
 
 type page struct {
@@ -61,7 +61,7 @@ func items(p page) []Item {
 		if subtitle == "" {
 			subtitle = v.Attributes.AlbumName
 		}
-		out = append(out, Item{v.ID, v.Type, title, subtitle})
+		out = append(out, Item{ID: v.ID, Type: v.Type, Title: title, Subtitle: subtitle, Album: v.Attributes.AlbumName})
 	}
 	return out
 }
@@ -75,7 +75,8 @@ type list struct {
 	filter          string // client-side filter; the cursor indexes shown()
 }
 
-// shown returns the rows matching the filter (title or subtitle, any case).
+// shown returns the rows matching the filter (title, subtitle/artist or album,
+// any case).
 func (l *list) shown() []Item {
 	if l.filter == "" {
 		return l.rows
@@ -83,7 +84,7 @@ func (l *list) shown() []Item {
 	f := strings.ToLower(l.filter)
 	var out []Item
 	for _, r := range l.rows {
-		if strings.Contains(strings.ToLower(r.Title+" "+r.Subtitle), f) {
+		if strings.Contains(strings.ToLower(r.Title+" "+r.Subtitle+" "+r.Album), f) {
 			out = append(out, r)
 		}
 	}
@@ -563,15 +564,24 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 	s := k.String()
+	// The offline screen is modal: only quitting or asking for an immediate
+	// retry does anything; other keys would just fail against a dead Cider.
+	if m.offline {
+		switch s {
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		case "r":
+			return m, refresh(m.client)
+		}
+		return m, nil
+	}
 	if m.input {
 		switch s {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "esc":
 			m.input = false
-			if m.scope() == filterScope {
-				m.active().filter = ""
-			}
+			m.active().filter = ""
 		case "enter":
 			m.input = false
 			switch m.scope() {
@@ -587,6 +597,7 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 				if m.libraryFull == nil {
 					full := m.lists[Library]
+					full.filter = ""
 					m.libraryFull = &full
 				}
 				m.libraryTerm = m.query
@@ -607,7 +618,7 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.query += " "
 			}
 		}
-		if m.input && m.scope() == filterScope { // filter live as you type
+		if m.input { // filter the loaded rows live as you type, on every tab
 			l := m.active()
 			l.filter, l.cursor = m.query, 0
 		}
@@ -674,6 +685,13 @@ func (m Model) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.query = m.searchTerm
 		case libraryScope:
 			m.query = m.libraryTerm
+			// Keep the unfiltered library to restore on esc; the live filter
+			// below would otherwise leave it with a filter and a reset cursor.
+			if m.libraryFull == nil {
+				full := m.lists[Library]
+				full.filter = ""
+				m.libraryFull = &full
+			}
 		case filterScope:
 			m.query = m.active().filter
 		}
@@ -1064,7 +1082,9 @@ func skip(c Client, route string) tea.Cmd {
 	}
 }
 
-// refresh polls now-playing once, outside the regular tick chain.
+// refresh polls now-playing once, outside the regular tick chain. Playback
+// actions use it to update sooner, and the offline screen's r key uses it to
+// retry immediately instead of waiting for the 2 s backoff.
 func refresh(c Client) tea.Cmd {
 	return func() tea.Msg {
 		msg := poll(c)().(pollMsg)

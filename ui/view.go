@@ -326,7 +326,7 @@ func (m Model) tabLine() string {
 		b.WriteString(faintStyle.Render("esc back"))
 	case m.tab == Search && m.searchTerm != "":
 		b.WriteString(dimStyle.Render("/ ") + textStyle.Render(m.searchTerm))
-	case m.tab == Library && m.libraryFull != nil:
+	case m.tab == Library && m.libraryTerm != "":
 		b.WriteString(dimStyle.Render("search ") + textStyle.Render(m.libraryTerm) + faintStyle.Render("  esc clear"))
 	case m.tab == Library && m.libraryAlbums:
 		b.WriteString(dimStyle.Render("Albums") + faintStyle.Render(" · l songs · o ") + dimStyle.Render(orderLabel[m.order[Library]]))
@@ -575,7 +575,8 @@ func (m Model) offlineLines(w, h int) []string {
 		dimStyle.Render("Retrying every 2 s…"),
 		faintStyle.Render(m.status),
 		"",
-		keyStyle.Render(" q ") + dimStyle.Render(" quit"),
+		keyStyle.Render(" r ") + dimStyle.Render(" retry now ") +
+			keyStyle.Render(" q ") + dimStyle.Render(" quit"),
 	}
 	lines := make([]string, max(0, (h-len(block))/2))
 	for _, s := range block {

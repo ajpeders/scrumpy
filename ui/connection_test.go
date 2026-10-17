@@ -5,7 +5,51 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
+
+// The offline screen is modal and offers an immediate retry so a user who has
+// just started Cider does not have to wait out the 2 s backoff.
+func TestOfflineScreenOffersImmediateRetry(t *testing.T) {
+	fake := &fakeClient{getBodies: map[string]string{
+		"/api/v1/playback/now-playing": `{"status":"ok","info":{"name":"Back","artistName":"Band"}}`,
+		"/api/v1/playback/volume":      `{"status":"ok","volume":0.5}`,
+	}}
+	m := New(fake)
+	m.tab = Search
+	updated, _ := m.Update(pollMsg{err: errors.New("connection refused")})
+	m = updated.(Model)
+	if view := m.View(); !strings.Contains(view, "retry now") || !strings.Contains(view, "quit") {
+		t.Fatalf("offline screen missing retry hint:\n%s", view)
+	}
+	// Control keys are ignored while offline: nothing is sent to a dead Cider.
+	before := len(fake.calls)
+	if _, msg := sendKey(t, m, specialKey(tea.KeySpace)); msg != nil || len(fake.calls) != before {
+		t.Fatal("a control key acted while offline")
+	}
+	if _, msg := sendKey(t, m, runeKey('q')); msg != (tea.QuitMsg{}) {
+		t.Fatalf("q while offline = %#v, want quit", msg)
+	}
+	// r retries at once, with a one-off poll that must not start a tick chain.
+	updated, retry := m.Update(runeKey('r'))
+	m = updated.(Model)
+	if retry == nil {
+		t.Fatal("r did not retry")
+	}
+	refreshed, ok := retry().(pollMsg)
+	if !ok || !refreshed.extra {
+		t.Fatalf("retry = %#v, want one-off poll", refreshed)
+	}
+	updated, next := m.Update(refreshed)
+	m = updated.(Model)
+	if m.offline || !strings.Contains(m.View(), "Back") {
+		t.Fatalf("retry did not reconnect: offline=%v\n%s", m.offline, m.View())
+	}
+	if next != nil {
+		t.Fatal("one-off retry started a second poll chain")
+	}
+}
 
 func TestStalePollFailureCannotDisconnectNewerPlayback(t *testing.T) {
 	m := New(&fakeClient{})

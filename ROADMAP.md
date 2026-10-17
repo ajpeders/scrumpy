@@ -119,3 +119,41 @@ covering the change. Push to `main` only after review (see HOWTO.md).
   Forgejo and GitHub releases, so trying cider-tui doesn't need Go.
   (2) Acceptance: tagging produces both binaries on both releases, and each
   prints the tag from `--version`.
+- [ ] **CID-17 Album artwork**: render the current track's artwork in the
+  terminal via the kitty/sixel/iTerm2 graphics protocols, with a clean
+  text-only fallback on terminals that support neither (today artwork is
+  neither displayed nor downloaded, see README). Artwork comes from Apple's
+  `artwork.url` through Cider's amapi passthrough; fetch on track change and
+  cache on disk so a track isn't re-downloaded. (3) Acceptance: terminal
+  capability detection is tested; artwork appears for a playing track in a
+  kitty/sixel terminal and degrades without error elsewhere; the cache is
+  bounded.
+- [ ] **CID-18 macOS and Windows support**: the player builds on both but is
+  untested (see README), and the visualizer is PipeWire-only, so it stays
+  blank. Confirm play/search/library/queue on each platform, and add a second
+  capture path (CoreAudio tap on macOS, WASAPI loopback on Windows) or make
+  `--check` report clearly why the visualizer is unavailable. (3) Acceptance:
+  manual playback check on at least one of the two OSes; tests cover the
+  capture-backend selection; `--check` states the visualizer status on each
+  platform.
+- [ ] **CID-19 Customizable keybindings**: move the hardcoded key map out of
+  `ui/model.go` into a small config file persisted next to `settings.json`
+  (XDG/macOS/Windows paths from CID-15), with defaults, per-action overrides
+  and a `?` help view generated from the live map. Unknown actions and
+  conflicting keys are reported on load, not silently ignored. (2) Acceptance:
+  tests for parsing, overriding and conflict detection; a changed binding
+  takes effect without a rebuild.
+- [ ] **CID-20 Last.fm scrobbling**: scrobble to Last.fm from the same model
+  that drives now-playing (now-playing on track start, scrobble once the
+  track passes Last.fm's threshold), so it works for Cider and for the future
+  Spotify/local backends (CID-12, CID-13). Needs a Last.fm API key plus an
+  OAuth session stored like the parked Spotify credentials; scrobble failures
+  are non-fatal and never block playback. (3) Acceptance: tests for the
+  threshold/queue logic and the unauth path against a fake client; a played
+  track appears on Last.fm; a failed submit is retried and doesn't stall the
+  UI.
+- [ ] **CID-21 Desktop notifications**: notify on track change through the
+  platform's notification service, with a toggle in Settings next to the
+  theme and background options. Stays silent when no notification daemon is
+  present. (2) Acceptance: a test shows a track change emits exactly one
+  notification with title and artist; the toggle persists and suppresses it.

@@ -151,7 +151,8 @@ While the search input has focus, every key goes to the input except `enter`
 ## Error handling
 
 - Cider not running / connection refused → full-screen "Cider isn't running" with
-  a retry every 2 s; no crash.
+  a retry every 2 s; `r` retries at once and only `q`/`ctrl+c` do anything else
+  while it is shown; no crash.
 - 403 or `ErrNoToken` → message naming the token source and how to create one in Cider.
 - Idle (now-playing has no title) → header shows "Nothing playing"; controls stay active.
 - amapi errors → shown in a status line; the current list keeps its data.

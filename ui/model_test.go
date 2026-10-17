@@ -631,6 +631,56 @@ func TestPlaylistFilterIsLiveAndSelectsFilteredRow(t *testing.T) {
 	}
 }
 
+func TestSlashFiltersLoadedRowsOnSearchAndLibrary(t *testing.T) {
+	for _, tab := range []Tab{Search, Library} {
+		fake := &fakeClient{}
+		m := New(fake)
+		m.tab = tab
+		m.lists[tab] = list{loaded: true, rows: []Item{
+			{ID: "a", Title: "A-Punk", Subtitle: "Vampire Weekend", Album: "Vampire Weekend"},
+			{ID: "b", Title: "Sunflower", Subtitle: "Post Malone", Album: "Into the Spider-Verse"},
+		}}
+		m, _ = sendKey(t, m, runeKey('/'))
+		m = typeText(t, m, "spider") // matches the album, not the title or artist
+		if got := m.lists[tab].shown(); len(got) != 1 || got[0].ID != "b" {
+			t.Fatalf("%s: filter matched %+v, want the album match b", tabNames[tab], got)
+		}
+		if len(fake.calls) != 0 {
+			t.Fatalf("%s: filtering called Apple: %+v", tabNames[tab], fake.calls)
+		}
+		m, _ = sendKey(t, m, specialKey(tea.KeyEsc))
+		if f := m.lists[tab].filter; f != "" || len(m.lists[tab].shown()) != 2 {
+			t.Fatalf("%s: esc left filter %q", tabNames[tab], f)
+		}
+	}
+}
+
+func TestFilterMatchesTitleArtistAndAlbum(t *testing.T) {
+	l := list{rows: []Item{
+		{ID: "1", Title: "A-Punk", Subtitle: "Vampire Weekend", Album: "Vampire Weekend"},
+		{ID: "2", Title: "Sunflower", Subtitle: "Post Malone", Album: "Into the Spider-Verse"},
+		{ID: "3", Title: "Hello", Subtitle: "Adele", Album: "25"},
+	}}
+	for term, want := range map[string]string{
+		"hello":   "3", // title
+		"adele":   "3", // artist, case-insensitive
+		"spider":  "2", // album
+		"vampire": "1", // artist and album
+	} {
+		l.filter = term
+		if got := l.shown(); len(got) != 1 || got[0].ID != want {
+			t.Errorf("filter %q matched %+v, want id %s", term, got, want)
+		}
+	}
+}
+
+func TestParseQueueKeepsAlbum(t *testing.T) {
+	rows, _, err := parseQueue(json.RawMessage(`[{"id":"i.1","type":"library-songs","attributes":{"name":"A-Punk","artistName":"Vampire Weekend","albumName":"Vampire Weekend"}}]`))
+	if err != nil || len(rows) != 1 || rows[0].Album != "Vampire Weekend" {
+		t.Fatalf("parseQueue = %+v err %v", rows, err)
+	}
+}
+
 func TestSlashOnSearchTabStillSearchesCatalog(t *testing.T) {
 	m := New(&fakeClient{})
 	m.tab = Search

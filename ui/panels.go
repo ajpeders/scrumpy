@@ -19,10 +19,10 @@ func (m Model) menuLines(w, n int) []string {
 		panelH := min(n/2, 10)
 		return append(m.listLines(w, n-panelH), m.sidePanel(w, panelH)...)
 	}
-	// The lyrics sidebar takes half the width, so it grows with the terminal
+	// The lyrics sidebar takes most of the width, so it grows with the terminal
 	// instead of freezing at a narrow column. The cap keeps a comfortable
-	// reading measure on very wide terminals and leaves the list the majority.
-	panelW := min(80, max(24, w/2))
+	// reading measure on very wide terminals and leaves the list usable.
+	panelW := min(100, max(24, w*11/20))
 	menuW := w - panelW - 1
 	left, right := m.listLines(menuW, n), m.sidePanel(panelW, n)
 	for i := range left {

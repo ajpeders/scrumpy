@@ -1,4 +1,9 @@
 # Render with: vhs demo/demo.tape   (Cider must be playing)
+#
+# Concise cut (~35 s): cold open on the animating visualizer + lyrics, one
+# theme hop, one search→enqueue→play interaction, then the full-screen
+# visualizer as the payoff and a key-help closer. No dead air, no private
+# library rows, and a neutral search query.
 Output demo/demo.gif
 Output demo/demo.mp4
 
@@ -20,44 +25,44 @@ Enter
 Sleep 3s
 Show
 
-# Opens on Queue: visualizer + synced lyrics
-Sleep 5s
+# Hook: opens on Queue with the spectrum animating and synced lyrics
+Sleep 6s
 
-# Tour the tabs
-Type "2"
-Sleep 2s
-Type "jjj"
-Sleep 1s
-Type "d"
-Sleep 2s
-Type "d"
-Type "3"
-Sleep 2s
+# One theme hop, recoloring live
+Type ","
+Type "j"
+Enter
+Type ","
+Sleep 4s
 
-# Search the catalog (no playback change)
+# Search the catalog, land on a result, enqueue it
 Type "1"
 Sleep 1s
 Type "/"
-Type "daft punk"
+Type "fleetwood mac"
 Enter
 Sleep 3s
-Type "jj"
+Type "j"
 Sleep 2s
-Escape
-
-# Switch visualizer style, then full-screen
-Type "b"
+Type "a"
 Sleep 3s
-Type "v"
+
+# Land back on Queue and play from the enqueued song
+Type "4"
+Sleep 2s
+Type "jjjjjjjjjj"
+Sleep 1s
+Enter
+Sleep 3s
+
+# Payoff: switch to waveform, then full-screen visualizer
+Type "b"
 Sleep 4s
 Type "v"
+Sleep 6s
+Type "v"
 
-# Expanded lyrics
-Type "y"
-Sleep 4s
-Type "y"
-
-# Key help
+# Closer: key help, then quit
 Type "?"
 Sleep 3s
 Type "?"

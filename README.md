@@ -52,6 +52,9 @@ playlist/album (shuffled when shuffle is on) · `?` all keys ·
 jump to a song, `x` remove it, `c` clear the queue · `o` sort (A→Z, Z→A, newest, oldest
 added) · `d` expand selected item details · `y` expand lyrics · `v` full-screen visualizer · `b` switch spectrum/waveform · `,` settings · `q` quit
 
+When Cider can't be reached the screen says so and retries every 2 s; `r`
+retries immediately and `q` quits.
+
 The footer shows essential contextual controls; `?` shows the full key list.
 Shuffle and Repeat labels beside the time bar reflect Cider's playback settings:
 dim when off, highlighted when on; `Repeat 1` means repeat one.
@@ -86,9 +89,10 @@ Waveform. This saves the startup view; `b` switches views during playback.
 Paper is monochrome: black text, controls, borders and visualizer on a light
 paper-colored background.
 
-`/` searches what you're looking at: the Apple Music catalog on Search, your
-library on Library (`esc` restores the full list), and filters playlists, the
-queue, or the tracks inside a playlist/album as you type.
+`/` filters what you're looking at as you type, matching a song's title, artist
+or album: the loaded rows on Search, Library, Playlists and the Queue, and the
+tracks inside a playlist/album. On Search and Library, `enter` still runs Apple's
+catalog/library search and `esc` clears the filter (or restores the library).
 
 ## Docs
 

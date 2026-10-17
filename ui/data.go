@@ -45,13 +45,13 @@ func parseQueue(raw json.RawMessage) ([]Item, string, error) {
 		var q struct {
 			ID, Type, Title, Name, ArtistName string
 			IsCurrent, Current                bool
-			Attributes                        struct{ Name, ArtistName string } `json:"attributes"`
-			Item                              *appleItem                        `json:"item"`
+			Attributes                        struct{ Name, ArtistName, AlbumName string } `json:"attributes"`
+			Item                              *appleItem                                   `json:"item"`
 		}
 		if err := json.Unmarshal(entry, &q); err != nil {
 			return nil, "", err
 		}
-		row := Item{ID: q.ID, Type: q.Type, Title: q.Title, Subtitle: q.ArtistName}
+		row := Item{ID: q.ID, Type: q.Type, Title: q.Title, Subtitle: q.ArtistName, Album: q.Attributes.AlbumName}
 		if row.Title == "" {
 			row.Title = q.Name
 		}
@@ -70,6 +70,9 @@ func parseQueue(raw json.RawMessage) ([]Item, string, error) {
 			}
 			if row.Subtitle == "" {
 				row.Subtitle = q.Item.Attributes.ArtistName
+			}
+			if row.Album == "" {
+				row.Album = q.Item.Attributes.AlbumName
 			}
 		}
 		if q.IsCurrent || q.Current {

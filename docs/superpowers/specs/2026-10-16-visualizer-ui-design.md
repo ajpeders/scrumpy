@@ -31,7 +31,8 @@ Top to bottom, at any terminal size:
   Silence is not the same as unavailable: silence draws flat bars.
 - Every line is truncated to the terminal width (ANSI-aware, `…`), so nothing
   wraps. View output never exceeds the terminal's width or height.
-- The offline screen keeps the same frame and shows the retry message centred.
+- The offline screen keeps the same frame and shows the retry message centred,
+  with `r` to retry at once and `q` to quit.
 
 ## Visualizer
 
