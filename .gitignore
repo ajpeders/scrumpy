@@ -1,3 +1,6 @@
 # Build output
 /cider-tui
 /cider-tui.exe
+
+# Demo render output (regenerate with vhs demo/demo.tape)
+/demo/demo.gif
