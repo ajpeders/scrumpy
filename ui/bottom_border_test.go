@@ -26,10 +26,12 @@ func TestBottomBorderEnclosesAllTabsAndFooter(t *testing.T) {
 					lyricsRows = m.lyricsBandRows() + 1 // +1 for the breathing row between lyrics and seek
 				}
 				top := 1 + len(m.nowLines()) + btoi(m.artworkShown()) + lyricsRows + len(m.seekLines(m.width))
-				_ = top
 				if !strings.HasPrefix(rows[top], "╭─") || !strings.Contains(rows[top], "Search") ||
 					!strings.HasSuffix(rows[top], "╮") || ansi.StringWidth(rows[top]) != m.width ||
-					rows[len(rows)-1] != "╰"+strings.Repeat("─", m.width-2)+"╯" {
+					!strings.HasPrefix(rows[len(rows)-1], "╰─ ") ||
+					!strings.Contains(rows[len(rows)-1], "quit") ||
+					!strings.HasSuffix(rows[len(rows)-1], "─╯") ||
+					ansi.StringWidth(rows[len(rows)-1]) != m.width {
 					t.Fatalf("size %v tab=%v art=%v: shared border missing", size, tab, art)
 				}
 				for _, row := range rows[top+1 : len(rows)-1] {
@@ -46,6 +48,10 @@ func TestBottomBorderEnclosesAllTabsAndFooter(t *testing.T) {
 				if len(rows) > m.height || strings.Contains(bottom, "╭─ Queue") {
 					t.Fatal("shared border overflows or retained the Queue-only frame")
 				}
+				_, listRows := m.layout()
+				if len(rows) != top+listRows+2 {
+					t.Fatalf("size %v: hints consumed a separate panel row", size)
+				}
 			}
 		}
 	}
@@ -61,5 +67,17 @@ func TestBottomBorderKeepsSmallAndFullVisualizerViewsUsable(t *testing.T) {
 	m.viz = make(chan []float64)
 	if m.bottomBordered() || m.bottomWidth() != m.width {
 		t.Fatal("full-screen visualizer reserved a bottom panel")
+	}
+}
+
+func TestBottomBorderCarriesStatusAtNarrowWidth(t *testing.T) {
+	m := New(&fakeClient{})
+	m.width, m.height = 12, 10
+	m.status = strings.Repeat("warning ", 8)
+	rows := strings.Split(ansi.Strip(m.View()), "\n")
+	last := rows[len(rows)-1]
+	if len(rows) > m.height || ansi.StringWidth(last) != m.width ||
+		!strings.HasPrefix(last, "╰─ ") || !strings.HasSuffix(last, "─╯") {
+		t.Fatalf("status should fit in the lower border: %q", last)
 	}
 }
