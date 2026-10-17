@@ -4,3 +4,6 @@
 
 # Demo render output (regenerate with vhs demo/demo.tape)
 /demo/demo.gif
+
+# Compiled test binaries (go test -c)
+*.test
