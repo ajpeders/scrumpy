@@ -27,8 +27,12 @@ func (m Model) fixedRows() int {
 		// steal it from the list.
 		lyricsBreathing = 1
 	}
+	footerRows := len(m.footerLines(m.bottomWidth()))
+	if m.bottomBordered() {
+		footerRows = 2 // the top border and the bottom border carrying the hints
+	}
 	return 1 + lyricsBand + lyricsBreathing + len(m.nowLines()) + btoi(m.artworkShown()) +
-		len(m.seekLines(w)) + len(m.footerLines(m.bottomWidth())) + 2*btoi(m.bottomBordered())
+		len(m.seekLines(w)) + footerRows
 }
 
 func (m Model) bottomBordered() bool {
@@ -186,10 +190,12 @@ func (m Model) view() string {
 		default:
 			bottom = append(bottom, m.menuLines(bw, listRows)...)
 		}
-		bottom = append(bottom, m.footerLines(bw)...)
 		if m.bottomBordered() {
 			bottom = panelBox("", bottom, w, len(bottom)+2)
 			bottom[0] = m.tabBorder(w)
+			bottom[len(bottom)-1] = m.footerBorder(w)
+		} else {
+			bottom = append(bottom, m.footerLines(bw)...)
 		}
 		lines = append(lines, bottom...)
 	} else {
@@ -635,6 +641,16 @@ func (m Model) tabBorder(w int) string {
 	label := ansi.Truncate(m.tabLine(), max(0, w-4), "…")
 	return dimStyle.Render("╭─") + label +
 		dimStyle.Render(" "+strings.Repeat("─", max(0, w-4-ansi.StringWidth(label)))+"╮")
+}
+
+func (m Model) footerBorder(w int) string {
+	footer := m.footerLines(m.bottomWidth())
+	if len(footer) == 0 {
+		return dimStyle.Render("╰" + strings.Repeat("─", w-2) + "╯")
+	}
+	label := ansi.Truncate(strings.TrimPrefix(footer[0], " "), max(0, w-6), "…")
+	return dimStyle.Render("╰─ ") + label +
+		dimStyle.Render(" "+strings.Repeat("─", w-5-ansi.StringWidth(label))+"╯")
 }
 
 func (m Model) tabLine() string {
