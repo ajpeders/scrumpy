@@ -1,4 +1,4 @@
-# cider-tui — design
+# sidecue — design
 
 Date: 2026-10-15 · Status: approved in chat, pending written review
 
@@ -6,7 +6,7 @@ Date: 2026-10-15 · Status: approved in chat, pending written review
 
 A cliamp-style terminal player for Apple Music on the Arch desktop. Cider does the
 playback (Apple Music streams are DRM-protected, so only Cider can decode them);
-cider-tui is a remote control with a now-playing view, search, library, playlists,
+sidecue is a remote control with a now-playing view, search, library, playlists,
 queue and a spectrum visualizer.
 
 Non-goals: decoding audio, an equalizer, gapless control, running without Cider,
@@ -54,10 +54,10 @@ route doesn't exist, the card drops that feature and says so in ROADMAP.md.
 
 ## Architecture
 
-Go + Bubble Tea/Lip Gloss, one static binary `cider-tui`.
+Go + Bubble Tea/Lip Gloss, one static binary `sidecue`.
 
 ```
-cider-tui (Bubble Tea)
+sidecue (Bubble Tea)
  ├─ ui/        tabs: Search · Library · Playlists · Queue; header: now playing + visualizer
  ├─ cider/     HTTP client: token discovery, playback GET/POST, amapi run-v3, paging
  ├─ viz/       pw-record child process → f32 PCM → FFT → N bar heights
@@ -127,7 +127,7 @@ While the search input has focus, every key goes to the input except `enter`
 ## Later (separate cards)
 
 - socket.io live updates instead of polling.
-- `cider-tui export-spotify`: library + playlists → Spotify via ISRC match, reusing
+- `sidecue export-spotify`: library + playlists → Spotify via ISRC match, reusing
   `cider.Client` paging. Replaces paid transfer services (13k songs exceeds free tiers).
   Kept in this repo on purpose: alex wants the Spotify move too, and it needs
   exactly the client this project builds. It is a one-shot subcommand, not part of the TUI.

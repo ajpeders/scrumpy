@@ -1,11 +1,11 @@
 # Architecture
 
 One Go binary. It never touches audio data from Apple Music: Cider plays it
-(DRM means only Cider can decode it), and cider-tui sends commands over HTTP and
+(DRM means only Cider can decode it), and sidecue sends commands over HTTP and
 reads Cider's output from PipeWire for the visualizer.
 
 ```
-cider-tui (Bubble Tea)
+sidecue (Bubble Tea)
  ├─ ui/        tabs: Search · Library · Playlists · Queue; header: now playing + visualizer
  ├─ cider/     HTTP client: token discovery, playback GET/POST, amapi run-v3, paging
  ├─ viz/       pw-record child process → f32 PCM → FFT → bar heights
@@ -26,7 +26,7 @@ cider-tui (Bubble Tea)
   Music API request as the signed-in user; the response is wrapped in `{"data": ...}`.
   Lists page through `next`.
 
-Full verified details are in the [design spec](docs/superpowers/specs/2026-10-15-cider-tui-design.md).
+Full verified details are in the [design spec](docs/superpowers/specs/2026-10-15-sidecue-design.md).
 
 ## Key decisions
 

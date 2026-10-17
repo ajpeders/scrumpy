@@ -1,12 +1,12 @@
-# cider-tui
+# sidecue
 
 A cliamp-style terminal player for Apple Music on Linux. [Cider](https://cider.sh)
-does the playback; cider-tui controls it over Cider's local API and adds search,
+does the playback; sidecue controls it over Cider's local API and adds search,
 library, playlists, queue and a spectrum visualizer.
 
 Status: design done, no code yet. Repositories exist on
-[Forgejo](https://git.thelunadog.com/alex/cider-tui) and
-[GitHub](https://github.com/ajpeders/cider-tui); the first push is pending (CID-00).
+[Forgejo](https://git.thelunadog.com/alex/sidecue) and
+[GitHub](https://github.com/ajpeders/sidecue).
 See [ROADMAP.md](ROADMAP.md).
 
 ## Requirements
@@ -19,9 +19,9 @@ See [ROADMAP.md](ROADMAP.md).
 ## Quick start
 
 ```sh
-go build -o cider-tui .
-./cider-tui --check   # Cider status, volume, library size
-./cider-tui
+go build -o sidecue .
+./sidecue --check   # Cider status, volume, library size
+./sidecue
 ```
 
 The token is read from Cider's own config automatically. Override with

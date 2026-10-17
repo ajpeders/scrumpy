@@ -4,8 +4,8 @@
 
 1. Open Cider → Settings → Connectivity → Manage External Application Access.
 2. Create a token. Cider saves it in `~/.config/sh.cider.genten/spa-config.yml`;
-   cider-tui reads it from there.
-3. Check: `./cider-tui --check` (or by hand:
+   sidecue reads it from there.
+3. Check: `./sidecue --check` (or by hand:
    `curl -H "apptoken: $TOKEN" localhost:10767/api/v1/playback/active` → `{"status":"ok"}`).
 
 ## Call the Apple Music API through Cider
@@ -38,7 +38,7 @@ pw-dump | jq '.[] | select(.info.props["application.name"]? // "" | test("cider"
 
 1. Tick the card in ROADMAP.md and update the other docs if behaviour changed.
 2. Commit, then show the diff and wait for OK before pushing `main` to both
-   `origin` (Forgejo, alex/cider-tui) and `github` (ajpeders/cider-tui).
+   `origin` (Forgejo, alex/sidecue) and `github` (ajpeders/sidecue).
 
 ## Troubleshooting
 

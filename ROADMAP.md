@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` not started · `[~]` started · `[x]` done.
 
-Design: [docs/superpowers/specs/2026-10-15-cider-tui-design.md](docs/superpowers/specs/2026-10-15-cider-tui-design.md)
+Design: [docs/superpowers/specs/2026-10-15-sidecue-design.md](docs/superpowers/specs/2026-10-15-sidecue-design.md)
 
 ## Done (2026-10-15)
 
@@ -15,15 +15,15 @@ Design: [docs/superpowers/specs/2026-10-15-cider-tui-design.md](docs/superpowers
 Acceptance for any card: `go vet ./... && go test ./...` green, plus a new test
 covering the change. Push to `main` only after review (see HOWTO.md).
 
-- [ ] **CID-00 Create the repos**: public `alex/cider-tui` on git.thelunadog.com
-  is `origin` (SSH, port 2222); public `ajpeders/cider-tui` on GitHub is `github`.
+- [x] **CID-00 Create the repos**: public `alex/sidecue` on git.thelunadog.com
+  is `origin` (SSH, port 2222); public `ajpeders/sidecue` on GitHub is `github`.
   Both repos and remotes are set up. Push `main` to both only after alex OKs the diff.
   (1) Acceptance: `git ls-remote origin` and `git ls-remote github` both show
   `main` at the local HEAD.
 - [ ] **CID-01 Scaffold + Cider client**: Go module, `cider` package with token
   discovery (`CIDER_TOKEN` → Cider's `spa-config.yml`), `CIDER_URL` override,
   `Get`/`Post`/`AMAPI`/paging, typed errors for not-running (connection refused)
-  and bad token (403). `cider-tui --check` prints Cider status, volume and library
+  and bad token (403). `sidecue --check` prints Cider status, volume and library
   song count. (2) Acceptance: httptest-based unit tests for token discovery, each
   error type and paging over a `next` chain; `--check` works against live Cider.
 - [ ] **CID-02 CI**: `.forgejo/workflows/ci.yml` running `go vet` + `go test ./...`
@@ -65,7 +65,7 @@ covering the change. Push to `main` only after review (see HOWTO.md).
   polling where they cover it. (2) Acceptance: event names documented in the
   spec; a test feeds recorded events into the model; polling stays as the fallback
   when the socket drops.
-- [ ] **CID-10 Spotify export** (one-shot subcommand, not part of the TUI): `cider-tui export-spotify` moves library songs to
+- [ ] **CID-10 Spotify export** (one-shot subcommand, not part of the TUI): `sidecue export-spotify` moves library songs to
   Liked Songs and recreates playlists, matching by ISRC with a title/artist search
   fallback; writes an unmatched report; resumable. Needs a Spotify developer app.
   (3) Acceptance: tests for ISRC/fallback matching and resume; a dry run on the
