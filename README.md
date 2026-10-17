@@ -24,8 +24,11 @@ block-art fallback used by terminals without graphics support.
   <img src="demo/screenshot-fullscreen.png" alt="Fullscreen waveform with lyrics" width="49%">
 </p>
 
-The demo video still shows the previous name and needs to be re-recorded before
-publication. See the [recording runbook](demo/README.md).
+### Demo
+
+![scrumpy showcase: library search for Graduation, playing I Wonder, queueing a playlist, shuffle, all five themes and both visualizers](demo/showcase.gif)
+
+Recorded in kitty; see the [recording runbook](demo/README.md).
 
 Status: preparing the first public release; core playback has been live-verified
 against Cider 3.1.8, but release artifacts and the remaining manual checks are
