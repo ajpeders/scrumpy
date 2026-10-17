@@ -4,6 +4,13 @@ A cliamp-style terminal player for Apple Music on Linux. [Cider](https://cider.s
 does the playback; sidecue controls it over Cider's local API and adds search,
 library, playlists, queue and spectrum/waveform visualizers.
 
+![sidecue playing Hard to Explain with album art, synced lyrics, the spectrum visualizer and catalog search results](demo/screenshot-player.png)
+
+<p>
+  <img src="demo/screenshot-fullscreen.png" alt="Full-screen spectrum visualizer with lyrics" width="49%">
+  <img src="demo/screenshot-waveform.png" alt="Waveform visualizer" width="49%">
+</p>
+
 Status: preparing the first public release; core playback has been live-verified
 against Cider 3.1.8, but release artifacts and the remaining manual checks are
 not yet signed off. Repositories on

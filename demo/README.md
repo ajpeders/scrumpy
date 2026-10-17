@@ -6,6 +6,12 @@ plays **I Wonder — Kanye West** from catalog search, opens the **102026**
 playlist, the details panel and the Queue, and ends on the waveform and
 full-screen visualizer.
 
+## Re-shoot the README screenshots
+
+Play a song with lyrics in Cider, then run `vhs demo/screenshots.tape`. It
+only searches (never changes playback) and shows catalog results rather than
+your library. VHS has no kitty graphics, so covers render as block art.
+
 ## Re-record the teaser
 
 1. Start Cider and enable its local API. The tape starts Hard to Explain
