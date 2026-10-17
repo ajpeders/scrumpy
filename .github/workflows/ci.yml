@@ -1,0 +1,17 @@
+# Mirror of .forgejo/workflows/ci.yml for the GitHub repository.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: golang:1.27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vet
+        run: go vet ./...
+      - name: Tests
+        run: go test ./...

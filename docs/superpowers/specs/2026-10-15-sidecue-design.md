@@ -34,23 +34,63 @@ any GUI. A fork of cliamp was rejected: cliamp decodes every source itself
 - Volume is a float 0–1 (GET returned `0.82402`). Library lists carry
   `meta.total`, so counts need only `?limit=1`.
 - Idle `now-playing` (nothing loaded) returns only
-  `{inFavorites, inLibrary, shuffleMode, repeatMode}`: no title, position or duration.
+  `{"status":"ok","info":{inFavorites, inLibrary, shuffleMode, repeatMode}}`:
+  no title, position or duration. Every `now-playing` response nests its data
+  under `info` (see "Verified live").
 
-### Not yet verified (each is the first step of the card that needs it)
+### Verified live (Cider 3.1.8, probed 2026-10-16)
 
-Probing these requires starting playback, so they were deferred:
+Probing with real playback resolved the earlier unknowns:
 
-| Unknown | Card |
-|---|---|
-| no-body routes `playpause`, `next`, `previous`, `toggle-shuffle`, `toggle-repeat` | CID-03 |
-| `seek.position` unit (absolute seconds expected) | CID-03 |
-| now-playing fields for title, artist, position and duration while playing | CID-03 |
-| `play-item` `type` values accepted for catalog (`songs`, `albums`, `playlists`) vs library (`library-songs`, `library-playlists`) items | CID-04 |
-| how to start a playlist at a given track (`play-item` + start index, `play-item-href`, or queue a playlist then skip) | CID-06 |
-| Cider's PipeWire node properties while playing | CID-08 |
-
-Each card records its findings in this section before building on them. If a
-route doesn't exist, the card drops that feature and says so in ROADMAP.md.
+- **now-playing while playing** nests everything under `info` (idle returns only
+  `{inFavorites, inLibrary, shuffleMode, repeatMode}` there too). Playing fields:
+  `info.name` (title), `info.artistName`, `info.albumName`,
+  `info.currentPlaybackTime` (seconds), `info.remainingTime` (seconds),
+  `info.durationInMillis`, `info.shuffleMode` (int), `info.repeatMode` (int),
+  `info.playParams.id` (track id). The client and UI decode this shape.
+- **No-body control routes** `playpause`, `next`, `previous`, `toggle-shuffle`,
+  `toggle-repeat` all return `{"status":"ok"}`.
+- **`seek.position` is absolute seconds** (seek to 30 → `currentPlaybackTime`
+  ≈30.5, seek to 5 → ≈5.5).
+- **`play-item` `type` values**: `library-songs`, `songs` (catalog), and
+  `library-albums` all start playback and populate the queue. `library-playlists`
+  and `playlists` return `{"status":"ok"}` but leave the queue empty — no
+  playlist-by-id playback route was found.
+- **Playlist tracks**: `/v1/me/library/playlists/{id}/tracks` works for
+  user-created playlists (e.g. 600 tracks) but Apple-curated library playlists
+  return `40403 No related resources`. Because playlist-by-id playback does not
+  work, the Playlists tab lists tracks and plays the **selected track only**;
+  playlist-level playback is a known gap (recorded in ROADMAP.md CID-06).
+  Update 2026-10-16: `play-item` on a song **replaces the queue** with that one
+  song, and `autoplay` is off by default, so playback stopped after it. `enter`
+  now plays the song and queues up to 100 following songs with `play-later`
+  (verified: `play-next` inserts right after the current track); `P` queues a
+  playlist's loaded tracks the same way, shuffling them locally when shuffle is
+  on. Cider's queue entries carry no current flag (`_state.current` marks loaded
+  items); the playing entry is found by matching now-playing's `playParams.id`.
+- **Queue routes** (found 2026-10-16 by POSTing `{}` and reading the zod
+  errors): `queue/move-to-position {startIndex, destinationIndex}`,
+  `queue/remove-by-index {index}`, `queue/change-to-index {index}`, and
+  `queue/clear-queue` (needs a `{}` body; a bare POST is a no-op, and the
+  current song keeps playing while the queue empties). Indexes
+  match the GET `queue` array. That array is the **whole** queue, including
+  songs already played, and can list the same song twice, so entry 0 is not
+  the current song. Edits locate the playing entry by its ID and refuse when
+  it is missing or duplicated; moving entries around the wrong position left
+  Cider stuck (loaded the next song, never played it) on 2026-10-16. Moving
+  upcoming entries does not interrupt playback (verified with a reversible
+  swap). The Queue tab exposes jump/remove/clear. `s` toggles Cider's shuffle
+  mode, `r` cycles repeat, and `a` outside Queue appends with `play-later`.
+  The time bar shows Cider's polled shuffle/repeat modes; queue-reordering
+  bindings have been removed.
+- **Cider's PipeWire node**: Cider is Electron, so its output stream reports
+  `application.name = "Chromium"` and `application.process.binary = "Cider"`.
+  The visualizer identifies the node by `application.process.binary` (falling
+  back to `application.name`) and targets it by `object.serial`; `pw-record
+  --target <serial>` captures real f32 audio.
+- **socket.io**: the EIO4 polling transport is implemented (`live`), but Cider's
+  application event names are still unobserved, so HTTP polling remains the
+  source of truth (CID-09 stays partial).
 
 ## Architecture
 
@@ -83,13 +123,16 @@ sidecue (Bubble Tea)
   `connectivity.apiTokens`. Missing file, unparseable YAML or an empty list →
   `ErrNoToken`, shown as the "create a token in Cider" message. If Cider's
   `apiTokensRequired` is `false`, run without a token.
-- **viz.Analyzer**: finds Cider's stream by parsing `pw-dump` JSON for a node whose
-  `application.name` matches `cider` (case-insensitive), then starts
-  `pw-record --target <node> --format f32 --channels 2 -`, reads PCM frames, runs an
-  FFT (Hann window, log-spaced bands) and emits bar heights on a channel at ~30 fps.
-  The stream node likely exists only while playing, so when `pw-record` exits or no
-  node is found it re-scans every 2 s; meanwhile it captures the default sink
-  monitor. Missing `pw-record` → blank strip, no retries. Spectrum and bar style may
+- **viz.Analyzer**: finds Cider's stream by parsing `pw-dump` JSON for a
+  `Stream/Output/Audio` node whose `application.process.binary` matches `cider`
+  (case-insensitive; `application.name` is only a fallback because Cider is
+  Electron and reports `Chromium`), then starts
+  `pw-record --target <object.serial> --format f32 --channels 2 -`, reads PCM frames, runs an
+  FFT (Hann window, log-spaced bands) and emits band levels on a channel at ~60 fps.
+  The stream node exists only while Cider is playing (and for a while after a
+  pause), so when `pw-record` exits or no node is found it re-scans every 2 s and
+  records nothing in between. A default-sink fallback was removed on 2026-10-16:
+  `pw-record --target <sink>` recorded the headset microphone instead. Missing `pw-record` → blank strip, no retries. Spectrum and bar style may
   be adapted from cliamp (MIT, credited).
 - **ui.Model**: one Bubble Tea model; a tick message polls now-playing every 500 ms;
   viz messages redraw the header. List views load pages lazily (library is 13k+ songs).
