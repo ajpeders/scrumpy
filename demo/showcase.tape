@@ -1,6 +1,8 @@
-# Short showcase: playlist queueing, shuffle, five themes, both visualizers.
+# Short showcase: library search-to-play, playlist queueing, shuffle,
+# five themes, both visualizers.
 # Run from the repository root: vhs demo/showcase.tape
-# Cider must be running and signed in; playlist 102026 must exist.
+# Cider must be running and signed in; playlist 102026 and the album
+# Graduation (Kanye West) must be in the library.
 # Uses real playback/queue, with isolated appearance settings. No seeking.
 # Review the export: API sleeps are not acceptance assertions.
 Output demo/showcase.mp4
@@ -33,14 +35,31 @@ Sleep 2s
 Show
 Sleep 4s
 
-# A short catalog search-to-play, before adding the playlist to its queue.
-Type "1/"
-Backspace 30
-Type "I Wonder Kanye West"
+# Find a song in your own library: Albums, search Graduation, open it,
+# filter its tracks to I Wonder and play. Typing first live-filters the
+# loaded page; Enter runs the full library search.
+Type "2"
+Sleep 2s
+Type "l"
+Sleep 3s
+Type "/Graduation"
+Sleep 1s
+Enter
+Sleep 3s
 Enter
 Sleep 4s
+Type "/I Wonder"
+Sleep 2s
 Enter
-Sleep 4s
+Sleep 1s
+Enter
+Sleep 8s
+
+# Pause and resume: the spectrum settles, then comes back.
+Type " "
+Sleep 3s
+Type " "
+Sleep 3s
 
 # Queue the playlist itself (a on the container, not on a song).
 Type "3"
@@ -56,11 +75,10 @@ Escape
 Type "4"
 Sleep 4s
 
-# Show both shuffle states, ending where we began. Skip in shuffled order.
+# Show both shuffle states, ending where we began. No skip: a random
+# shuffled track may lack lyrics, and I Wonder carries the rest of the cut.
 Type "s"
 Sleep 3s
-Type "n"
-Sleep 6s
 Type "s"
 Sleep 3s
 
@@ -69,15 +87,15 @@ Sleep 3s
 Type ","
 Up
 Enter
-Sleep 4s
+Sleep 3s
 Down
 Enter
-Sleep 4s
+Sleep 3s
 Down
 Enter
 Sleep 2s
 Escape
-Sleep 4s
+Sleep 3s
 Type ","
 Down
 Enter
@@ -89,7 +107,7 @@ Screenshot /tmp/opencode/scrumpy-legacy-paper.png
 Type ","
 Down
 Enter
-Sleep 4s
+Sleep 3s
 
 # Finish in Paper (3), rather than changing the user's preferred palette.
 Up
@@ -100,9 +118,9 @@ Sleep 3s
 
 # Spectrum, waveform, waveform fullscreen, then normal layout.
 Type "b"
-Sleep 5s
+Sleep 4s
 Type "v"
-Sleep 6s
+Sleep 5s
 Type "v"
 Sleep 3s
 Hide

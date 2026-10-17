@@ -43,20 +43,31 @@ history. Prefer the MP4 for the full demo and a short GIF cutdown for embeds.
 
 ## Short feature showcase (under two minutes)
 
-Run `vhs demo/showcase.tape` from the repository root with Cider signed in
-and playlist **102026** available. This builds the working tree and exports
+Run `vhs demo/showcase.tape` from the repository root with Cider signed in,
+playlist **102026** and the album **Graduation** (Kanye West) in the library.
+This builds the working tree and exports
 `showcase.mp4` and `showcase.gif`, using isolated appearance settings and the
 existing token without showing it. It changes real playback and queues that
 playlist; its real track names are visible. There is no seeking.
 
-The cut shows the playlist's enqueue confirmation, tracks and populated Queue,
-both shuffle states with a next-track skip between them, catalog search-to-play,
-all five labeled themes, and spectrum/waveform plus fullscreen. Light and Paper
+The cut finds a song in your own library (Albums → search **Graduation** →
+open it → filter to **I Wonder** → play), pauses and resumes, then shows the
+playlist's enqueue confirmation, tracks and populated Queue, both shuffle
+states, all five labeled themes, and spectrum/waveform plus fullscreen. There
+is deliberately no skip: a random shuffled track may have no lyrics, so I Wonder
+plays through the rest of the cut. Typing `/Graduation` briefly shows "No
+matches" (it live-filters the loaded A–Z page) until Enter runs the full
+library search. Light and Paper
 are also held in normal view; Paper has the longest hold and closes the cut.
 The tape captures a legacy Paper PNG under `/tmp/opencode`. Settings navigation
 accounts for the active theme when reopening. Verify the frames and duration
 (maximum 120 seconds); timed keystrokes alone do not prove successful actions.
 This is focused feature coverage, not completion of the release gates below.
+
+For native kitty graphics, launch the app in a 1400×850 kitty window with
+`--listen-on unix:$D/kitty.sock` and run
+`python3 demo/record-kitty.py --socket unix:$D/kitty.sock --region 1400x850+X+Y`.
+It replays this tape's visible keys and writes only `showcase.mp4`.
 
 ## Full public-release showcase (5–7 minutes)
 
