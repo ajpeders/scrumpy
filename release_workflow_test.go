@@ -129,7 +129,7 @@ func TestPublishReleaseCreatesWhenMissing(t *testing.T) {
 		},
 	}
 
-	script, err := filepath.Abs(filepath.Join(".forgejo", "scripts", "publish-release.sh"))
+	script, err := filepath.Abs(filepath.Join("scripts", "publish-release.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestPublishReleaseCreatesWhenMissing(t *testing.T) {
 // must skip the existing assets. The script compares by basename, since
 // the workspace passes full paths but Forgejo stores just the filename.
 func TestPublishReleaseReusesExisting(t *testing.T) {
-	script, _ := filepath.Abs(filepath.Join(".forgejo", "scripts", "publish-release.sh"))
+	script, _ := filepath.Abs(filepath.Join("scripts", "publish-release.sh"))
 	jq, _ := exec.LookPath("jq")
 
 	mock := &mockReleaseAPI{
@@ -259,7 +259,7 @@ func TestPublishReleaseReusesExisting(t *testing.T) {
 // loudly (not silently create a duplicate release). Cider's token may
 // have been revoked; we want the job to error visibly.
 func TestPublishReleasePropagatesAuthError(t *testing.T) {
-	script, _ := filepath.Abs(filepath.Join(".forgejo", "scripts", "publish-release.sh"))
+	script, _ := filepath.Abs(filepath.Join("scripts", "publish-release.sh"))
 	jq, _ := exec.LookPath("jq")
 
 	mock := &mockReleaseAPI{lookupStatus: http.StatusUnauthorized}

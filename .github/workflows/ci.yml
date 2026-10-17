@@ -14,7 +14,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install jq
-        # release_workflow_test.go exercises .forgejo/scripts/publish-release.sh
+        # release_workflow_test.go exercises scripts/publish-release.sh
         # which uses jq to parse the release JSON. Install it here so CI
         # exercises the same path production runs on.
         run: |

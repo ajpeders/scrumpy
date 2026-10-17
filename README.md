@@ -30,9 +30,8 @@ block-art fallback used by terminals without graphics support.
 
 Recorded in kitty; see the [recording runbook](demo/README.md).
 
-Status: preparing the first public release; core playback has been live-verified
-against Cider 3.1.8, but release artifacts and the remaining manual checks are
-not yet signed off. Repositories on
+Status: v0.1.0, the first public release. Early software: core playback has
+been live-verified against Cider 3.1.8 on Linux. Repositories on
 [Forgejo](https://git.thelunadog.com/alex/scrumpy) and
 [GitHub](https://github.com/ajpeders/scrumpy).
 

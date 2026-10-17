@@ -52,6 +52,6 @@ jobs:
           # The script does the lookup-then-create dance and skips any
           # assets already on the release, so a re-run after a partial
           # upload failure doesn't duplicate anything.
-          bash .forgejo/scripts/publish-release.sh \
+          bash scripts/publish-release.sh \
               "$api" "${TOKEN}" "${GITHUB_REF_NAME}" \
               scrumpy-linux-amd64 scrumpy-linux-arm64 SHA256SUMS
