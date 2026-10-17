@@ -4,11 +4,24 @@ A cliamp-style terminal player for Apple Music on Linux. [Cider](https://cider.s
 does the playback; sidecue controls it over Cider's local API and adds search,
 library, playlists, queue and spectrum/waveform visualizers.
 
-![sidecue player with album art, lyrics, the spectrum visualizer and catalog search results](demo/screenshot-player.png)
+![Hard to Explain by The Strokes in sidecue, with native album art, synced lyrics and the spectrum visualizer](demo/screenshot-player.png)
+
+Captured in kitty with real images via the kitty graphics protocol, not the
+block-art fallback used by terminals without graphics support.
+
+### Themes
 
 <p>
-  <img src="demo/screenshot-fullscreen.png" alt="Full-screen spectrum visualizer with lyrics" width="49%">
-  <img src="demo/screenshot-waveform.png" alt="Waveform visualizer" width="49%">
+  <img src="demo/screenshot-waveform-terminal.png" alt="Terminal theme waveform" width="49%">
+  <img src="demo/screenshot-waveform.png" alt="Dark theme waveform" width="49%">
+</p>
+<p>
+  <img src="demo/screenshot-waveform-light.png" alt="Light theme waveform" width="49%">
+  <img src="demo/screenshot-paper.png" alt="Paper theme waveform" width="49%">
+</p>
+<p>
+  <img src="demo/screenshot-waveform-contrast.png" alt="High contrast waveform" width="49%">
+  <img src="demo/screenshot-fullscreen.png" alt="Fullscreen waveform with lyrics" width="49%">
 </p>
 
 Status: preparing the first public release; core playback has been live-verified

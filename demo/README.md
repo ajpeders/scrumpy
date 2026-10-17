@@ -6,7 +6,17 @@ plays **I Wonder — Kanye West** from catalog search, opens the **102026**
 playlist, the details panel and the Queue, and ends on the waveform and
 full-screen visualizer.
 
-## Re-shoot the README screenshots
+## README screenshots (kitty)
+
+The seven README PNGs show **Hard to Explain — The Strokes** playing in
+catalog Search. They were captured directly from a 1400×900 kitty window with
+`kitten @ --to "unix:$D/kitty.sock" screenshot --match id:1
+demo/screenshot-player.png` (substitute each screenshot filename while its
+theme or fullscreen view is visible). Use an isolated settings profile when
+switching themes; screenshots include kitty-native album art. Review every
+image before publishing.
+
+### Legacy VHS screenshots (block-art fallback)
 
 Play a song with lyrics in Cider, then run `vhs demo/screenshots.tape`. It
 only searches (never changes playback) and shows catalog results rather than
