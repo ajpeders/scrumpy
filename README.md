@@ -93,7 +93,7 @@ the **kitty graphics protocol**. You need one of:
 - **iTerm2** (recent versions implement the kitty protocol),
 - **Konsole** (with graphics support).
 
-Cider detects your terminal from its `TERM` / `TERM_PROGRAM` / `KITTY_WINDOW_ID`
+sidecue detects your terminal from its `TERM` / `TERM_PROGRAM` / `KITTY_WINDOW_ID`
 environment variables. Note the limitation: the image is drawn directly into the
 scrolling area, so it requires the **alternate screen** (enabled by default) and
 a terminal that keeps graphics across partial redraws. Inside `tmux` or GNU

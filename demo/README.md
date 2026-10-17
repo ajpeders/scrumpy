@@ -1,13 +1,21 @@
 # Demo
 
-[Watch the short demo](demo.mp4): now-playing and lyrics,
-catalog search for **I Wonder — Kanye West**, and the full-screen visualizer.
+[Watch the short demo](demo.mp4) (under a minute): it opens mid-song on
+**Hard to Explain — The Strokes** with the visualizer and synced lyrics, then
+plays **I Wonder — Kanye West** from catalog search, opens the **102026**
+playlist, the details panel and the Queue, and ends on the waveform and
+full-screen visualizer.
 
 ## Re-record the teaser
 
-1. Start Cider, enable its local API, and play **I Wonder — Kanye West**.
-2. From the repository root, run `go run . --check`.
-3. With VHS installed, run `vhs demo/demo.tape`.
+1. Start Cider and enable its local API. The tape starts Hard to Explain
+   itself (off camera) and seeks to about the middle, so whatever is playing
+   will be replaced.
+2. Make sure the library has a playlist named **102026**, and that the first
+   catalog results for "Hard to Explain The Strokes" and "I Wonder Kanye West"
+   are those songs.
+3. From the repository root, run `go run . --check`.
+4. With VHS installed, run `vhs demo/demo.tape`.
 
 The tape builds the current working tree, uses an isolated settings directory
 under `/tmp/opencode`, and reads the existing Cider token without displaying it.
