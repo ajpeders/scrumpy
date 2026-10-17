@@ -89,7 +89,26 @@ func themeSettingsPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("config directory: %w", err)
 	}
-	return filepath.Join(dir, "sidecue", "settings.json"), nil
+	path := filepath.Join(dir, "scrumpy", "settings.json")
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	legacy := filepath.Join(dir, "sidecue", "settings.json")
+	if _, err := os.Stat(legacy); os.IsNotExist(err) {
+		return path, nil
+	} else if err != nil {
+		return "", err
+	}
+	config, err := loadAppearance(legacy)
+	if err != nil {
+		return "", fmt.Errorf("read previous settings: %w", err)
+	}
+	if err := saveAppearance(path, config); err != nil {
+		return "", fmt.Errorf("migrate settings: %w", err)
+	}
+	return path, nil
 }
 
 type appearanceSettings struct {

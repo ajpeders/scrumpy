@@ -4,9 +4,9 @@
 
 1. Open Cider → Settings → Connectivity → Manage External Application Access.
 2. Create a token. Cider saves it in `sh.cider.genten/spa-config.yml` under
-   your config directory (`~/.config` on Linux); sidecue reads it from there.
+   your config directory (`~/.config` on Linux); scrumpy reads it from there.
    If Cider keeps it elsewhere (e.g. a Flatpak install), set `CIDER_TOKEN`.
-3. Check: `sidecue --check` (or by hand:
+3. Check: `scrumpy --check` (or by hand:
    `curl -H "apptoken: $TOKEN" localhost:10767/api/v1/playback/active` → `{"status":"ok"}`).
 
 ## Call the Apple Music API through Cider
@@ -42,7 +42,7 @@ pw-dump | jq '.[] | select(.info.props["application.process.binary"]? // "" | te
 
 1. Update the docs if behaviour changed.
 2. Commit, then show the diff and wait for OK before pushing `main` to both
-   `origin` (Forgejo, alex/sidecue) and `github` (ajpeders/sidecue).
+   `origin` (Forgejo, alex/scrumpy) and `github` (ajpeders/scrumpy).
 
 ## Cut a release
 
@@ -53,11 +53,11 @@ Review the working tree (including untracked files), commit only the intended
 changes, and get approval before pushing. Do not tag a dirty or unreviewed tree.
 
 Versions follow semver tags (`v0.1.0`). `go install …@v0.1.0` reports that
-version in `sidecue --version` automatically; for a hand-built binary:
+version in `scrumpy --version` automatically; for a hand-built binary:
 
 ```sh
 git tag -a v0.1.0 -m "v0.1.0" && git push origin v0.1.0 && git push github v0.1.0
-go build -ldflags "-X main.version=v0.1.0" -o sidecue .
+go build -ldflags "-X main.version=v0.1.0" -o scrumpy .
 ```
 
 Pushing a `v*` tag runs the `release` workflow on both remotes
@@ -72,7 +72,7 @@ After both workflows finish:
    mirrors, and publish a checksum manifest with the assets.
 2. Run `--version`, `--check`, and a short playback session on a clean Linux
    machine for each architecture (or record explicitly which was not tested).
-3. Test `go install github.com/ajpeders/sidecue@v0.1.0` outside the checkout.
+3. Test `go install github.com/ajpeders/scrumpy@v0.1.0` outside the checkout.
 4. Add release notes with prerequisites, supported platforms, known issues and
    the demo link. Verify download links anonymously before announcing.
 

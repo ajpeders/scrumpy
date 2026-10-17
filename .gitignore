@@ -1,4 +1,6 @@
 # Build output
+/scrumpy
+/scrumpy.exe
 /sidecue
 /sidecue.exe
 /dist/

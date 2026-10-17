@@ -10,7 +10,7 @@ acceptance criteria and record manual checks separately from automated tests.
    Application Access). The exact steps and a `curl` check are in
    [HOWTO.md](HOWTO.md).
 2. Install Go 1.27+.
-3. Clone the repo, then `go build -o sidecue . && ./sidecue --check`.
+3. Clone the repo, then `go build -o scrumpy . && ./scrumpy --check`.
 
 Without Cider running you can still work on anything with tests: the client is
 exercised through `httptest`, and the UI through a fake client. Only the

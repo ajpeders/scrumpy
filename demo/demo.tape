@@ -17,9 +17,9 @@ Set TypingSpeed 80ms
 # Off camera: isolated config with the real Cider token via symlink, then
 # start Hard to Explain and seek to about its middle (22 × 5 s ≈ 1:50).
 Hide
-Type `D=$(mktemp -d /tmp/opencode/cider-demo.XXXXXX) && mkdir -p $D/cfg/sidecue && ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" $D/cfg/sh.cider.genten`
+Type `D=$(mktemp -d /tmp/opencode/cider-demo.XXXXXX) && mkdir -p $D/cfg/scrumpy && ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" $D/cfg/sh.cider.genten`
 Enter
-Type `echo '{"theme":"Dark","background":true,"visualizer":"spectrum"}' > $D/cfg/sidecue/settings.json`
+Type `echo '{"theme":"Dark","background":true,"visualizer":"spectrum"}' > $D/cfg/scrumpy/settings.json`
 Enter
 Type "go build -o $D/bin . && clear && XDG_CONFIG_HOME=$D/cfg $D/bin"
 Enter

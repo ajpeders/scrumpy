@@ -1,10 +1,8 @@
 # Demo
 
-[Watch the short demo](demo.mp4) (under a minute): it opens mid-song on
-**Hard to Explain — The Strokes** with the visualizer and synced lyrics, then
-plays **I Wonder — Kanye West** from catalog search, opens the **102026**
-playlist, the details panel and the Queue, and ends on the waveform and
-full-screen visualizer.
+The existing [short demo](demo.mp4) still shows the previous name. Re-record it
+before using it to illustrate scrumpy. The README screenshots below have been
+recaptured with the new name.
 
 ## README screenshots (kitty)
 
@@ -13,14 +11,16 @@ catalog Search. They were captured directly from a 1400×900 kitty window with
 `kitten @ --to "unix:$D/kitty.sock" screenshot --match id:1
 demo/screenshot-player.png` (substitute each screenshot filename while its
 theme or fullscreen view is visible). Use an isolated settings profile when
-switching themes; screenshots include kitty-native album art. Review every
-image before publishing.
+switching themes; screenshots include kitty-native album art and the **scrumpy**
+title. Review every image before publishing.
 
 ### Legacy VHS screenshots (block-art fallback)
 
 Play a song with lyrics in Cider, then run `vhs demo/screenshots.tape`. It
 only searches (never changes playback) and shows catalog results rather than
-your library. VHS has no kitty graphics, so covers render as block art.
+your library. VHS has no kitty graphics, so covers render as block art. The
+legacy PNGs go to `/tmp/opencode/scrumpy-legacy-*.png` and do not replace the
+kitty screenshots used by the README.
 
 ## Re-record the teaser
 
@@ -53,7 +53,7 @@ The cut shows the playlist's enqueue confirmation, tracks and populated Queue,
 both shuffle states with a next-track skip between them, catalog search-to-play,
 all five labeled themes, and spectrum/waveform plus fullscreen. Light and Paper
 are also held in normal view; Paper has the longest hold and closes the cut.
-The tape captures `screenshot-paper.png` for the README. Settings navigation
+The tape captures a legacy Paper PNG under `/tmp/opencode`. Settings navigation
 accounts for the active theme when reopening. Verify the frames and duration
 (maximum 120 seconds); timed keystrokes alone do not prove successful actions.
 This is focused feature coverage, not completion of the release gates below.
@@ -97,12 +97,12 @@ environment variable private instead. This still controls your real Cider.
 
 ```sh
 D=$(mktemp -d /tmp/opencode/cider-showcase.XXXXXX)
-mkdir -p "$D/config/sidecue" "$D/cache"
+mkdir -p "$D/config/scrumpy" "$D/cache"
 ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" "$D/config/sh.cider.genten"
-printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":false,"lyrics":true}' > "$D/config/sidecue/settings.json"
-go build -o "$D/sidecue" .
-XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/sidecue" --check
-XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/sidecue"
+printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":false,"lyrics":true}' > "$D/config/scrumpy/settings.json"
+go build -o "$D/scrumpy" .
+XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/scrumpy" --check
+XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/scrumpy"
 ```
 
 Keep `$D` in that shell for the restart test. Leave the temporary profile out of

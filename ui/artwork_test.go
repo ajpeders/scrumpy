@@ -136,6 +136,32 @@ func TestArtworkCacheRoundTrip(t *testing.T) {
 	}
 }
 
+func TestArtworkCacheMigratesPreviousArtwork(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", dir)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 32, 32))); err != nil {
+		t.Fatal(err)
+	}
+	legacy := filepath.Join(dir, "sidecue", "artwork", "123.img")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacy, buf.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if cachedArtwork("123") == nil {
+		t.Fatal("previous artwork was not loaded")
+	}
+	path, err := artworkCachePath("123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if migrated, err := os.ReadFile(path); err != nil || !bytes.Equal(migrated, buf.Bytes()) {
+		t.Fatalf("migrated artwork = %d bytes, %v", len(migrated), err)
+	}
+}
+
 func TestPruneArtworkCacheRemovesOldestFirst(t *testing.T) {
 	dir := t.TempDir()
 	for i, name := range []string{"a.img", "b.img", "c.img"} {

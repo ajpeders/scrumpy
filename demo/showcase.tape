@@ -15,11 +15,11 @@ Set TypingSpeed 60ms
 
 # Build and start a known song off camera. Never display credentials.
 Hide
-Type `D=$(mktemp -d /tmp/opencode/cider-showcase.XXXXXX) && mkdir -p "$D/config/sidecue" "$D/cache" && ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" "$D/config/sh.cider.genten"`
+Type `D=$(mktemp -d /tmp/opencode/cider-showcase.XXXXXX) && mkdir -p "$D/config/scrumpy" "$D/cache" && ln -s "${XDG_CONFIG_HOME:-$HOME/.config}/sh.cider.genten" "$D/config/sh.cider.genten"`
 Enter
-Type `printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":false,"lyrics":true}' > "$D/config/sidecue/settings.json"`
+Type `printf '%s\n' '{"theme":"Dark","background":true,"visualizer":"spectrum","artwork":false,"lyrics":true}' > "$D/config/scrumpy/settings.json"`
 Enter
-Type `go build -o "$D/sidecue" . && clear && XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/sidecue"`
+Type `go build -o "$D/scrumpy" . && clear && XDG_CONFIG_HOME="$D/config" XDG_CACHE_HOME="$D/cache" "$D/scrumpy"`
 Enter
 Sleep 5s
 Type "1/"
@@ -85,7 +85,7 @@ Sleep 2s
 Escape
 # Paper's normal layout gets the longest theme hold; palette is unchanged.
 Sleep 7s
-Screenshot demo/screenshot-paper.png
+Screenshot /tmp/opencode/scrumpy-legacy-paper.png
 Type ","
 Down
 Enter

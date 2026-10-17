@@ -68,13 +68,40 @@ func TestThemeSettingsPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "sidecue", "settings.json"); path != want {
+	if want := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "scrumpy", "settings.json"); path != want {
 		t.Fatalf("path = %q, want %q", path, want)
 	}
 }
 
+func TestThemeSettingsPathMigratesPreviousSettings(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	legacy := filepath.Join(dir, "sidecue", "settings.json")
+	old := appearanceSettings{Theme: "Paper", Background: false, Visualizer: "waveform", Artwork: true, Lyrics: true}
+	if err := saveAppearance(legacy, old); err != nil {
+		t.Fatal(err)
+	}
+	path, err := themeSettingsPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := loadAppearance(path); err != nil || got != old {
+		t.Fatalf("migrated = %+v, %v; want %+v", got, err, old)
+	}
+	newConfig := appearanceSettings{Theme: "Dark", Background: true, Visualizer: "spectrum", Lyrics: true}
+	if err := saveAppearance(path, newConfig); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := themeSettingsPath(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := loadAppearance(path); err != nil || got != newConfig {
+		t.Fatalf("new settings overwritten by old: %+v, %v", got, err)
+	}
+}
+
 func TestThemePersistence(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config", "sidecue", "settings.json")
+	path := filepath.Join(t.TempDir(), "config", "scrumpy", "settings.json")
 	if got, err := loadTheme(path); err != nil || got != "Terminal" {
 		t.Fatalf("missing settings = %q, %v", got, err)
 	}

@@ -10,23 +10,23 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/ajpeders/sidecue/cider"
-	"github.com/ajpeders/sidecue/ui"
-	"github.com/ajpeders/sidecue/viz"
+	"github.com/ajpeders/scrumpy/cider"
+	"github.com/ajpeders/scrumpy/ui"
+	"github.com/ajpeders/scrumpy/viz"
 )
 
 func main() { os.Exit(run(os.Args[1:])) }
 
 func run(args []string) int {
-	flags := flag.NewFlagSet("sidecue", flag.ContinueOnError)
+	flags := flag.NewFlagSet("scrumpy", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
 	check := flags.Bool("check", false, "check Cider connectivity and library")
 	showVersion := flags.Bool("version", false, "print the version")
 	flags.Usage = func() {
 		fmt.Fprint(flags.Output(), `Usage:
-  sidecue                          open the player
-  sidecue --check                  check Cider connectivity and library
-  sidecue --version                print the version
+  scrumpy                          open the player
+  scrumpy --check                  check Cider connectivity and library
+  scrumpy --version                print the version
 
 Environment:
   CIDER_TOKEN    Cider API token (default: read from Cider's config)
@@ -44,7 +44,7 @@ Environment:
 		return 2
 	}
 	if *showVersion {
-		fmt.Printf("sidecue %s\n", versionString())
+		fmt.Printf("scrumpy %s\n", versionString())
 		return 0
 	}
 	if *check {
@@ -70,7 +70,7 @@ Environment:
 var version string
 
 // versionString falls back to the module version, which `go install
-// github.com/ajpeders/sidecue@v0.1.0` records, and "(devel)" for local builds.
+// github.com/ajpeders/scrumpy@v0.1.0` records, and "(devel)" for local builds.
 func versionString() string {
 	if version != "" {
 		return version
